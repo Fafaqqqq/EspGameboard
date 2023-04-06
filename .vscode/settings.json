@@ -1,0 +1,6 @@
+{
+  "files.associations": {
+    "sdkconfig.h": "c",
+    "spi_display.h": "c"
+  }
+}
