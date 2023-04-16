@@ -13,7 +13,7 @@ enum {
 };
 
 typedef enum {
-  SPI_DEVICE_RESET = 0x1,
+  SPI_DISPLAY_RESET = 0x1,
 
 } spi_dev_controller_cmd_t;
 

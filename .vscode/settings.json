@@ -1,6 +1,12 @@
 {
   "files.associations": {
     "sdkconfig.h": "c",
-    "spi_display.h": "c"
-  }
+    "spi_display.h": "c",
+    "*.tcc": "c",
+    "compare": "c",
+    "limits": "c",
+    "spi_driver_display.h": "c"
+  },
+  "cmake.configureOnOpen": false,
+  "C_Cpp.errorSquiggles": "disabled"
 }

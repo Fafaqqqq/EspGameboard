@@ -18,9 +18,7 @@ typedef struct {
   float y;
 } joystick_data_t;
 
-typedef void* joystick_handle_t;
-
-joystick_status_t joystick_controller_init(joystick_handle_t* joystick_handle);
+joystick_status_t joystick_controller_init();
 joystick_status_t joystick_data_get(joystick_data_t* joystick_data);
 
 #endif
