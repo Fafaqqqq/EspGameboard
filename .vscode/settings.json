@@ -5,7 +5,11 @@
     "*.tcc": "c",
     "compare": "c",
     "limits": "c",
-    "spi_driver_display.h": "c"
+    "spi_driver_display.h": "c",
+    "freertos.h": "c",
+    "esp_event.h": "c",
+    "task.h": "c",
+    "semphr.h": "c"
   },
   "cmake.configureOnOpen": false,
   "C_Cpp.errorSquiggles": "disabled"

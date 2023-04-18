@@ -1,6 +1,10 @@
 #include "spi_display.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
 
 #include <string.h>
+
+#include "esp_log.h"
 
 #define SPI_MAX_INIT_DATA_LENGTH 15
 #define SPI_INIT_DATA_CNT 22
@@ -11,6 +15,8 @@ typedef struct
   uint8_t lenght;
   spi_dev_controller_cmd_t cmd;
 } spi_data_t;
+
+static volatile SemaphoreHandle_t priv_mtx = NULL;
 
 static spi_data_t _spi_init_data_buf[SPI_INIT_DATA_CNT] = {
     {.data = {0x39, 0x2C, 0x00, 0x34, 0x02},
@@ -91,6 +97,7 @@ void spi_display_cmd_send(spi_device_handle_t spi, const uint8_t cmd)
   spi_trans.user = (void *)0; // D/C needs to be set to 0
 
   ret = spi_device_polling_transmit(spi, &spi_trans); // Transmit!
+  // xSemaphoreGive(priv_mtx);
   assert(ret == ESP_OK);                              // Should have had no issues.
 }
 
@@ -107,7 +114,10 @@ void spi_display_data_send(spi_device_handle_t spi, const uint8_t *data, int len
   t.length = len * 8;                         // Len is in bytes, transaction length is in bits.
   t.tx_buffer = data;                         // Data
   t.user = (void *)1;                         // D/C needs to be set to 1
+
+  // xSemaphoreTake(priv_mtx, pdMS_TO_TICKS(1000));
   ret = spi_device_polling_transmit(spi, &t); // Transmit!
+  // xSemaphoreGive(priv_mtx);
 
   assert(ret == ESP_OK); // Should have had no issues.
 }
@@ -309,6 +319,11 @@ void spi_display_draw_circle(spi_device_handle_t spi, uint16_t x0, uint16_t y0, 
   int ddF_y = -2 * r;
   int x = 0;
   int y = r;
+
+  // if (priv_mtx == NULL) ESP_LOGI("SPI DISPLAY", "SEM NULL");
+
+  xSemaphoreTake(priv_mtx, pdMS_TO_TICKS(1000));
+
   spi_display_draw_pixel(spi, x0, y0 + r, color);
   spi_display_draw_pixel(spi, x0, y0 - r, color);
   spi_display_draw_pixel(spi, x0 + r, y0, color);
@@ -333,11 +348,16 @@ void spi_display_draw_circle(spi_device_handle_t spi, uint16_t x0, uint16_t y0, 
     spi_display_draw_pixel(spi, x0 + y, y0 - x, color);
     spi_display_draw_pixel(spi, x0 - y, y0 - x, color);
   }
+  xSemaphoreGive(priv_mtx);
+
 }
 
 //-------------------------------------------------------------------
 void spi_display_init(spi_device_handle_t spi, uint16_t w_size, uint16_t h_size)
 {
+  priv_mtx = xSemaphoreCreateMutex();
+  if (priv_mtx == NULL) ESP_LOGI("SPI DISPLAY", "SEM NULL");
+  
   uint8_t data[15];
   // Initialize non-SPI GPIOs
   gpio_set_direction(CONFIG_PIN_NUM_DC, GPIO_MODE_OUTPUT);
