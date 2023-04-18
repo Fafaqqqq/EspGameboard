@@ -16,7 +16,7 @@ typedef struct
   spi_dev_controller_cmd_t cmd;
 } spi_data_t;
 
-static volatile SemaphoreHandle_t priv_mtx = NULL;
+static volatile SemaphoreHandle_t priv_mtx;
 
 static spi_data_t _spi_init_data_buf[SPI_INIT_DATA_CNT] = {
     {.data = {0x39, 0x2C, 0x00, 0x34, 0x02},
@@ -96,9 +96,16 @@ void spi_display_cmd_send(spi_device_handle_t spi, const uint8_t cmd)
   spi_trans.tx_buffer = &cmd; // The data is the cmd itself
   spi_trans.user = (void *)0; // D/C needs to be set to 0
 
-  ret = spi_device_polling_transmit(spi, &spi_trans); // Transmit!
-  // xSemaphoreGive(priv_mtx);
-  assert(ret == ESP_OK);                              // Should have had no issues.
+  if (xSemaphoreTake(priv_mtx, pdMS_TO_TICKS(100)) == pdTRUE)
+  {
+    ret = spi_device_polling_transmit(spi, &spi_trans); // Transmit!
+    xSemaphoreGive(priv_mtx);
+    assert(ret == ESP_OK);                              // Should have had no issues.
+  }
+  else
+  {
+      ESP_LOGI("SPI", "Unable take mutex, print skip");
+  }
 }
 
 void spi_display_data_send(spi_device_handle_t spi, const uint8_t *data, int len)
@@ -115,11 +122,16 @@ void spi_display_data_send(spi_device_handle_t spi, const uint8_t *data, int len
   t.tx_buffer = data;                         // Data
   t.user = (void *)1;                         // D/C needs to be set to 1
 
-  // xSemaphoreTake(priv_mtx, pdMS_TO_TICKS(1000));
-  ret = spi_device_polling_transmit(spi, &t); // Transmit!
-  // xSemaphoreGive(priv_mtx);
-
-  assert(ret == ESP_OK); // Should have had no issues.
+  if (xSemaphoreTake(priv_mtx, pdMS_TO_TICKS(100)) == pdTRUE)
+  {
+    ret = spi_device_polling_transmit(spi, &t); // Transmit!
+    xSemaphoreGive(priv_mtx);
+    assert(ret == ESP_OK);                              // Should have had no issues.
+  }
+  else
+  {
+      ESP_LOGI("SPI", "Unable take mutex, print skip");
+  }
 }
 
 void spi_display_reset(void)
@@ -307,9 +319,13 @@ void spi_display_draw_pixel(spi_device_handle_t spi, int x, int y, uint16_t colo
     return;
   data[0] = color >> 8;
   data[1] = color & 0xFF;
-  spi_display_set_add_wind(spi, x, y, x, y);
-  spi_display_cmd_send(spi, 0x2C);
-  spi_display_data_send(spi, data, 2);
+  // if (xSemaphoreTake(priv_mtx, pdMS_TO_TICKS(100)) == pdTRUE)
+  // {
+    spi_display_set_add_wind(spi, x, y, x, y);
+    spi_display_cmd_send(spi, 0x2C);
+    spi_display_data_send(spi, data, 2);
+  //   xSemaphoreGive(priv_mtx);
+  // } 
 }
 
 void spi_display_draw_circle(spi_device_handle_t spi, uint16_t x0, uint16_t y0, int r, uint16_t color)
@@ -319,10 +335,14 @@ void spi_display_draw_circle(spi_device_handle_t spi, uint16_t x0, uint16_t y0, 
   int ddF_y = -2 * r;
   int x = 0;
   int y = r;
-
   // if (priv_mtx == NULL) ESP_LOGI("SPI DISPLAY", "SEM NULL");
 
-  xSemaphoreTake(priv_mtx, pdMS_TO_TICKS(1000));
+  // if (xSemaphoreTake(priv_mtx, pdMS_TO_TICKS(2000)) != pdTRUE)
+  // {
+  //   return;
+  // }
+
+  // ESP_LOGI("SPI", "TAKE MTX");
 
   spi_display_draw_pixel(spi, x0, y0 + r, color);
   spi_display_draw_pixel(spi, x0, y0 - r, color);
@@ -348,7 +368,7 @@ void spi_display_draw_circle(spi_device_handle_t spi, uint16_t x0, uint16_t y0, 
     spi_display_draw_pixel(spi, x0 + y, y0 - x, color);
     spi_display_draw_pixel(spi, x0 - y, y0 - x, color);
   }
-  xSemaphoreGive(priv_mtx);
+  // xSemaphoreGive(priv_mtx);
 
 }
 
@@ -356,7 +376,7 @@ void spi_display_draw_circle(spi_device_handle_t spi, uint16_t x0, uint16_t y0, 
 void spi_display_init(spi_device_handle_t spi, uint16_t w_size, uint16_t h_size)
 {
   priv_mtx = xSemaphoreCreateMutex();
-  if (priv_mtx == NULL) ESP_LOGI("SPI DISPLAY", "SEM NULL");
+  // if (priv_mtx == NULL) ESP_LOGI("SPI DISPLAY", "SEM NULL");
   
   uint8_t data[15];
   // Initialize non-SPI GPIOs

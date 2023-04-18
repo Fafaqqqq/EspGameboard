@@ -212,20 +212,21 @@ static void print_ext_circle_task(void *pvParameters)
       float dir_x = circle_dir.x;
       float dir_y = circle_dir.y;
 
+      ESP_LOGI(TAG, "circle dir: x -> %.2f, y -> %.2f", dir_x, dir_y);
+
       xSemaphoreGive(circle_mtx);
 
       spi_display_draw_circle(device_handle, pos_x, pos_y, 40, 0xF800);
       pos_x += speed * dir_x;
-      pos_y += speed * pos_y;
-      spi_display_draw_circle(device_handle, pos_x, pos_y, 40, 0xFFFF);
-      
-      vTaskDelay(20 / portTICK_PERIOD_MS);
+      pos_y += speed * dir_y;
+      vTaskDelay(100 / portTICK_PERIOD_MS);
+      spi_display_draw_circle(device_handle, pos_x, pos_y, 40, 0xFEAF);
     }
     else
     {
       ESP_LOGI(TAG, "Unable take mutex, print skip");
     }
-    vTaskDelay(20 / portTICK_PERIOD_MS);
+    // vTaskDelay(20 / portTICK_PERIOD_MS);
 
   }
 }
@@ -245,10 +246,6 @@ void app_main()
 
   ESP_LOGI(TAG, "ESP_WIFI_MODE_AP");
   wifi_init_softap();
-
-  xTaskCreatePinnedToCore(&tcp_server_task, "tcp_client", 4096, NULL, 5, NULL, 1);
-  xTaskCreatePinnedToCore(&print_ext_circle_task, "ext_circle", 4096, NULL, 4, NULL, 0);
-
 
   joystick_data_t data;
   int ret_ = joystick_controller_init();
@@ -288,7 +285,12 @@ void app_main()
   ESP_LOGI(TAG, "spi bus add device: %d", ret);
 
   spi_display_init(spi_dev_h, DISPLAY_SIZE_X, DISPLAY_SIZE_Y);
-  
+
+  device_handle = spi_dev_h;
+
+  xTaskCreatePinnedToCore(&tcp_server_task, "tcp_client", 4096, NULL, 5, NULL, 1);
+  xTaskCreatePinnedToCore(&print_ext_circle_task, "ext_circle", 4096, NULL, 2, NULL, 0);
+
   spi_display_fill(spi_dev_h, 0xF800);
 
   uint32_t pos_x = DISPLAY_SIZE_Y / 2;
@@ -302,7 +304,7 @@ void app_main()
 
     joystick_data_get(&data);
 
-    vTaskDelay(20 / portTICK_PERIOD_MS);
+    vTaskDelay(70 / portTICK_PERIOD_MS);
 
     pos_x += speed * data.x;
     pos_y += speed * data.y;
