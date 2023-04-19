@@ -30,9 +30,13 @@
 
 const char *TAG = "master_target";
 
-static volatile SemaphoreHandle_t circle_mtx = NULL;
+static volatile SemaphoreHandle_t client_sem = NULL;
+static volatile SemaphoreHandle_t server_sem = NULL;
 
-static volatile joystick_data_t     circle_dir;
+
+static volatile joystick_data_t client_stick_data;
+static volatile joystick_data_t server_stick_data;
+
 static volatile spi_device_handle_t device_handle;
 
 
@@ -103,6 +107,7 @@ static void wifi_init_softap(void)
 
 static void tcp_server_task(void *pvParameters)
 {
+  char tx_buffer[128];
   char rx_buffer[128];
   char addr_str[128];
 
@@ -162,7 +167,7 @@ static void tcp_server_task(void *pvParameters)
 
   while (1)
   {
-    int len = recv(accept_sock, rx_buffer, sizeof(rx_buffer) - 1, 0);
+    int len = recv(accept_sock, rx_buffer, sizeof(joystick_data_t) - 1, 0);
     if (0 > len)
     {
       ESP_LOGE(TAG, "Error occurred during receiving: errno %d", errno);
@@ -175,14 +180,17 @@ static void tcp_server_task(void *pvParameters)
     } 
     else
     {
-      xSemaphoreTake(circle_mtx, pdMS_TO_TICKS(20));
-      circle_dir.x = 0.5f;
-      circle_dir.y = 0.5;
-      xSemaphoreGive(circle_mtx);
+      // xSemaphoreTake(client_sem, pdMS_TO_TICKS(20));
+
+      client_stick_data.x = ((joystick_data_t*)rx_buffer)->x;
+      client_stick_data.y = ((joystick_data_t*)rx_buffer)->y;
+      xSemaphoreGive(client_sem);
       
-      rx_buffer[len] = 0; // Null-terminate whatever we received and treat like a string
-      ESP_LOGI(TAG, "Received %d bytes: %s", len, rx_buffer);
-      int err = send(accept_sock, rx_buffer, len, 0);
+
+      // rx_buffer[len] = 0; // Null-terminate whatever we received and treat like a string
+      *((joystick_data_t*)tx_buffer) = server_stick_data;
+      ESP_LOGI(TAG, "Received %d bytes: %s", sizeof(joystick_data_t) - 1, rx_buffer);
+      int err = send(accept_sock, tx_buffer, sizeof(joystick_data_t) - 1, 0);
       if (err < 0)
       {
           ESP_LOGE(TAG, "Error occurred during sending: errno %d", errno);
@@ -199,7 +207,7 @@ static void tcp_server_task(void *pvParameters)
   vTaskDelete(NULL);
 }
 
-static void print_ext_circle_task(void *pvParameters)
+static void client_circle_task(void *pvParameters)
 {
   uint32_t pos_x = 100;
   uint32_t pos_y = 100;
@@ -207,14 +215,14 @@ static void print_ext_circle_task(void *pvParameters)
 
   while (1)
   {
-    if (xSemaphoreTake(circle_mtx, pdMS_TO_TICKS(20)) == pdTRUE)
+    if (xSemaphoreTake(client_sem, pdMS_TO_TICKS(20)) == pdTRUE)
     {
-      float dir_x = circle_dir.x;
-      float dir_y = circle_dir.y;
+      float dir_x = client_stick_data.x;
+      float dir_y = client_stick_data.y;
 
       ESP_LOGI(TAG, "circle dir: x -> %.2f, y -> %.2f", dir_x, dir_y);
 
-      xSemaphoreGive(circle_mtx);
+      // xSemaphoreGive(client_sem);
 
       spi_display_draw_circle(device_handle, pos_x, pos_y, 40, 0xF800);
       pos_x += speed * dir_x;
@@ -235,7 +243,8 @@ void app_main()
 {
   ESP_LOGI("main", "Main task stared");
 
-  circle_mtx = xSemaphoreCreateMutex();
+  client_sem = xSemaphoreCreateBinary();
+  server_sem = xSemaphoreCreateBinary();
 
   esp_err_t ret = nvs_flash_init();
   if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
@@ -247,7 +256,6 @@ void app_main()
   ESP_LOGI(TAG, "ESP_WIFI_MODE_AP");
   wifi_init_softap();
 
-  joystick_data_t data;
   int ret_ = joystick_controller_init();
 
   if (ret_ == 0) {
@@ -289,7 +297,7 @@ void app_main()
   device_handle = spi_dev_h;
 
   xTaskCreatePinnedToCore(&tcp_server_task, "tcp_client", 4096, NULL, 5, NULL, 1);
-  xTaskCreatePinnedToCore(&print_ext_circle_task, "ext_circle", 4096, NULL, 2, NULL, 0);
+  xTaskCreatePinnedToCore(&client_circle_task, "ext_circle", 4096, NULL, 2, NULL, 0);
 
   spi_display_fill(spi_dev_h, 0xF800);
 
@@ -302,12 +310,17 @@ void app_main()
   {
     spi_display_draw_circle(spi_dev_h, pos_x, pos_y, 40, 0xF800);
 
-    joystick_data_get(&data);
+    joystick_data_get(&server_stick_data);
+
+    if (xSemaphoreTake(client_sem, pdMS_TO_TICKS(20)) != pdTRUE)
+    {
+      continue;
+    }
 
     vTaskDelay(70 / portTICK_PERIOD_MS);
 
-    pos_x += speed * data.x;
-    pos_y += speed * data.y;
+    pos_x += speed * server_stick_data.x;
+    pos_y += speed * server_stick_data.y;
 
     spi_display_draw_circle(spi_dev_h, pos_x, pos_y, 40, 0xFFFF);
   }

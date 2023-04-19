@@ -315,7 +315,7 @@ static void spi_display_set_add_wind(spi_device_handle_t spi, uint16_t x0, uint1
 void spi_display_draw_pixel(spi_device_handle_t spi, int x, int y, uint16_t color)
 {
   uint8_t data[2];
-  if ((x < 0) || (y < 0) || (x >= DISPLAY_SIZE_X) || (y >= DISPLAY_SIZE_Y))
+  if ((x < 0) || (y < 0) || (x >= DISPLAY_SIZE_Y) || (y >= DISPLAY_SIZE_X))
     return;
   data[0] = color >> 8;
   data[1] = color & 0xFF;
