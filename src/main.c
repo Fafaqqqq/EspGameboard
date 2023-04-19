@@ -167,7 +167,7 @@ static void tcp_server_task(void *pvParameters)
 
   while (1)
   {
-    int len = recv(accept_sock, rx_buffer, sizeof(joystick_data_t) - 1, 0);
+    int len = recv(accept_sock, rx_buffer, sizeof(joystick_data_t), 0);
     if (0 > len)
     {
       ESP_LOGE(TAG, "Error occurred during receiving: errno %d", errno);
@@ -189,8 +189,8 @@ static void tcp_server_task(void *pvParameters)
 
       // rx_buffer[len] = 0; // Null-terminate whatever we received and treat like a string
       *((joystick_data_t*)tx_buffer) = server_stick_data;
-      ESP_LOGI(TAG, "Received %d bytes: %s", sizeof(joystick_data_t) - 1, rx_buffer);
-      int err = send(accept_sock, tx_buffer, sizeof(joystick_data_t) - 1, 0);
+      ESP_LOGI(TAG, "Received %d bytes: %s", sizeof(joystick_data_t), rx_buffer);
+      int err = send(accept_sock, tx_buffer, sizeof(joystick_data_t), 0);
       if (err < 0)
       {
           ESP_LOGE(TAG, "Error occurred during sending: errno %d", errno);
@@ -303,24 +303,27 @@ void app_main()
 
   uint32_t pos_x = DISPLAY_SIZE_Y / 2;
   uint32_t pos_y = DISPLAY_SIZE_X / 2;
-  
+  spi_display_draw_circle(spi_dev_h, pos_x, pos_y, 40, 0xFFFF);
+
   float speed = 4.0f;
 
   while (1)
   {
-    spi_display_draw_circle(spi_dev_h, pos_x, pos_y, 40, 0xF800);
-
     joystick_data_get(&server_stick_data);
+    uint32_t new_pos_x = pos_x + speed * server_stick_data.x;
+    uint32_t new_pos_y = pos_y + speed * server_stick_data.y;
 
-    if (xSemaphoreTake(client_sem, pdMS_TO_TICKS(20)) != pdTRUE)
+    if (new_pos_x == pos_x && new_pos_y == pos_y)
     {
       continue;
     }
 
+    spi_display_draw_circle(spi_dev_h, pos_x, pos_y, 40, 0xF800);
+
     vTaskDelay(70 / portTICK_PERIOD_MS);
 
-    pos_x += speed * server_stick_data.x;
-    pos_y += speed * server_stick_data.y;
+    pos_x = new_pos_x;
+    pos_y = new_pos_y;
 
     spi_display_draw_circle(spi_dev_h, pos_x, pos_y, 40, 0xFFFF);
   }
