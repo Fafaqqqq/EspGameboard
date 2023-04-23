@@ -13,6 +13,7 @@
 #include "esp_event.h"
 
 #include "nvs_flash.h"
+#include "driver/gpio.h"
 
 #include "lwip/ip6_addr.h"
 #include "lwip/sockets.h"
@@ -27,6 +28,7 @@
 
 #define HOST_IP_ADDR "192.168.4.1"
 #define PORT 3333
+#define BUTTON_PIN 14
 
 const char *TAG = "master_target";
 
@@ -39,6 +41,9 @@ static volatile joystick_data_t server_stick_data;
 
 static volatile spi_device_handle_t device_handle;
 
+void button_isr_handler(void *arg) {
+    printf("Button pressed!\n");
+}
 
 void spi_pre_transfer_callback(spi_transaction_t* spi_trans)
 {
@@ -264,6 +269,19 @@ void app_main()
   else {
     ESP_LOGI("main", "Cannot init joystick controller. Status code: %d", ret_);
   }
+
+  gpio_config_t _gpio_config = {
+    .intr_type = GPIO_INTR_POSEDGE,   // Обработчик прерывания вызывается при изменении состояния на положительный фронт
+    .mode = GPIO_MODE_INPUT,          // Настраиваем GPIO на вход
+    .pin_bit_mask = (1ULL<<BUTTON_PIN) // Настраиваем пин кнопки
+  };
+  
+  gpio_config(&_gpio_config);
+
+  gpio_install_isr_service(0); // Устанавливаем службу обработки прерываний GPIO
+
+  gpio_isr_handler_add(BUTTON_PIN, button_isr_handler, NULL); // Регистрируем обработчик прерывания на пине кнопки
+
 
   ret = 0;
   spi_device_handle_t spi_dev_h;
