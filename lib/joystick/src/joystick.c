@@ -6,6 +6,7 @@
 #include "esp_log.h"
 #include "driver/gpio.h"
 #include "driver/adc.h"
+#include "esp_adc/adc_oneshot.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"

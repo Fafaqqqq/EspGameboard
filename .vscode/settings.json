@@ -9,7 +9,13 @@
     "freertos.h": "c",
     "esp_event.h": "c",
     "task.h": "c",
-    "semphr.h": "c"
+    "semphr.h": "c",
+    "esp_intr_alloc.h": "c",
+    "sys.h": "c",
+    "nvs_flash.h": "c",
+    "gpio.h": "c",
+    "adc_oneshot.h": "c",
+    "esp_wifi.h": "c"
   },
   "cmake.configureOnOpen": false,
   "C_Cpp.errorSquiggles": "disabled"

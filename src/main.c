@@ -6,11 +6,12 @@
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "esp_intr_alloc.h"
 
 #include "esp_log.h"
-#include "esp_mac.h"
-#include "esp_wifi.h"
-#include "esp_event.h"
+// #include "esp_mac.h"
+// #include "esp_wifi.h"
+// #include "esp_event.h"
 
 #include "nvs_flash.h"
 #include "driver/gpio.h"
@@ -21,28 +22,46 @@
 #include "lwip/err.h"
 #include "lwip/sys.h"
 
-#define EXAMPLE_ESP_WIFI_SSID      CONFIG_ESP_WIFI_SSID
-#define EXAMPLE_ESP_WIFI_PASS      CONFIG_ESP_WIFI_PASSWORD
-#define EXAMPLE_ESP_WIFI_CHANNEL   CONFIG_ESP_WIFI_CHANNEL
-#define EXAMPLE_MAX_STA_CONN       CONFIG_ESP_MAX_STA_CONN
+#include "wifi_init.h"
+
+// #define EXAMPLE_ESP_WIFI_SSID      CONFIG_ESP_WIFI_SSID
+// #define EXAMPLE_ESP_WIFI_PASS      CONFIG_ESP_WIFI_PASSWORD
+// #define EXAMPLE_ESP_WIFI_CHANNEL   CONFIG_ESP_WIFI_CHANNEL
+// #define EXAMPLE_MAX_STA_CONN       CONFIG_ESP_MAX_STA_CONN
 
 #define HOST_IP_ADDR "192.168.4.1"
 #define PORT 3333
-#define BUTTON_PIN 14
+#define BUTTON_GPIO_PIN     14  // номер GPIO-пина, к которому подключена кнопка
+#define BUTTON_ACTIVE_LEVEL 0   // уровень логической активности кнопки
 
 const char *TAG = "master_target";
 
 static volatile SemaphoreHandle_t client_sem = NULL;
 static volatile SemaphoreHandle_t server_sem = NULL;
 
+static volatile SemaphoreHandle_t wifi_init_sem = NULL;
 
 static volatile joystick_data_t client_stick_data;
 static volatile joystick_data_t server_stick_data;
 
 static volatile spi_device_handle_t device_handle;
 
-void button_isr_handler(void *arg) {
-    printf("Button pressed!\n");
+
+static void client_circle_task(void *pvParameters);
+static void tcp_server_task(void *pvParameters);
+
+static void IRAM_ATTR button_isr_handler(void* arg)  {
+  BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+
+  xHigherPriorityTaskWoken = pdFALSE;
+
+  /* Unblock the task by releasing the semaphore. */
+  xSemaphoreGive( wifi_init_sem);
+
+
+  /* Yield if xHigherPriorityTaskWoken is true.  The 
+  actual macro used here is port specific. */
+  // portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
 }
 
 void spi_pre_transfer_callback(spi_transaction_t* spi_trans)
@@ -51,66 +70,7 @@ void spi_pre_transfer_callback(spi_transaction_t* spi_trans)
   gpio_set_level(CONFIG_PIN_NUM_DC, dc);
 }
 
-static void wifi_event_handler(void* arg, esp_event_base_t event_base,
-                                    int32_t event_id, void* event_data)
-{
-    if (event_id == WIFI_EVENT_AP_STACONNECTED)
-    {
-        wifi_event_ap_staconnected_t* event = (wifi_event_ap_staconnected_t*) event_data;
-        ESP_LOGI(TAG, "station join, AID=%d", event->aid);
-    }
-    else if (event_id == WIFI_EVENT_AP_STADISCONNECTED)
-    {
-        wifi_event_ap_stadisconnected_t* event = (wifi_event_ap_stadisconnected_t*) event_data;
-        ESP_LOGI(TAG, "station leave, AID=%d", event->aid);
-    }
-}
-
-static void wifi_init_softap(void)
-{
-    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-
-    ESP_ERROR_CHECK(esp_netif_init());
-    ESP_ERROR_CHECK(esp_event_loop_create_default());
-
-    esp_netif_create_default_wifi_ap();
-
-    ESP_ERROR_CHECK(esp_wifi_init(&cfg));
-    ESP_ERROR_CHECK(esp_event_handler_instance_register(WIFI_EVENT,
-                                                        ESP_EVENT_ANY_ID,
-                                                        &wifi_event_handler,
-                                                        NULL,
-                                                        NULL));
-
-    wifi_config_t wifi_config =
-    {
-        .ap = {
-            .ssid = EXAMPLE_ESP_WIFI_SSID,
-            .ssid_len = strlen(EXAMPLE_ESP_WIFI_SSID),
-            .channel = EXAMPLE_ESP_WIFI_CHANNEL,
-            .password = EXAMPLE_ESP_WIFI_PASS,
-            .max_connection = EXAMPLE_MAX_STA_CONN,
-            .authmode = WIFI_AUTH_WPA2_PSK,
-            .pmf_cfg = {
-                    .required = true,
-            },
-        },
-    };
-
-    if (strlen(EXAMPLE_ESP_WIFI_PASS) == 0)
-    {
-        wifi_config.ap.authmode = WIFI_AUTH_OPEN;
-    }
-
-    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_AP));
-    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &wifi_config));
-    ESP_ERROR_CHECK(esp_wifi_start());
-
-    ESP_LOGI(TAG, "wifi_init_softap finished. SSID:%s password:%s channel:%d",
-             EXAMPLE_ESP_WIFI_SSID, EXAMPLE_ESP_WIFI_PASS, EXAMPLE_ESP_WIFI_CHANNEL);
-}
-
-static void tcp_server_task(void *pvParameters)
+void tcp_server_task(void *pvParameters)
 {
   char tx_buffer[128];
   char rx_buffer[128];
@@ -212,7 +172,7 @@ static void tcp_server_task(void *pvParameters)
   vTaskDelete(NULL);
 }
 
-static void client_circle_task(void *pvParameters)
+void client_circle_task(void *pvParameters)
 {
   uint32_t pos_x = 100;
   uint32_t pos_y = 100;
@@ -237,7 +197,8 @@ static void client_circle_task(void *pvParameters)
     }
     else
     {
-      ESP_LOGI(TAG, "Unable take mutex, print skip");
+      vTaskDelay(100 / portTICK_PERIOD_MS);
+      // ESP_LOGI(TAG, "Unable take mutex, print skip");
     }
     // vTaskDelay(20 / portTICK_PERIOD_MS);
 
@@ -251,39 +212,18 @@ void app_main()
   client_sem = xSemaphoreCreateBinary();
   server_sem = xSemaphoreCreateBinary();
 
-  esp_err_t ret = nvs_flash_init();
-  if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-    ESP_ERROR_CHECK(nvs_flash_erase());
-    ret = nvs_flash_init();
-  }
-  ESP_ERROR_CHECK(ret);
+  wifi_pre_init();
+  wifi_init();
 
-  ESP_LOGI(TAG, "ESP_WIFI_MODE_AP");
-  wifi_init_softap();
+  int ret = joystick_controller_init();
 
-  int ret_ = joystick_controller_init();
-
-  if (ret_ == 0) {
-    ESP_LOGI("main", "Init joystick controller ok. Status code: %d", ret_);
+  if (ret == 0) {
+    ESP_LOGI("main", "Init joystick controller ok. Status code: %d", ret);
   }
   else {
-    ESP_LOGI("main", "Cannot init joystick controller. Status code: %d", ret_);
+    ESP_LOGI("main", "Cannot init joystick controller. Status code: %d", ret);
   }
 
-  gpio_config_t _gpio_config = {
-    .intr_type = GPIO_INTR_POSEDGE,   // Обработчик прерывания вызывается при изменении состояния на положительный фронт
-    .mode = GPIO_MODE_INPUT,          // Настраиваем GPIO на вход
-    .pin_bit_mask = (1ULL<<BUTTON_PIN) // Настраиваем пин кнопки
-  };
-  
-  gpio_config(&_gpio_config);
-
-  gpio_install_isr_service(0); // Устанавливаем службу обработки прерываний GPIO
-
-  gpio_isr_handler_add(BUTTON_PIN, button_isr_handler, NULL); // Регистрируем обработчик прерывания на пине кнопки
-
-
-  ret = 0;
   spi_device_handle_t spi_dev_h;
 
   spi_bus_config_t spi_cfg = {
@@ -314,9 +254,6 @@ void app_main()
 
   device_handle = spi_dev_h;
 
-  xTaskCreatePinnedToCore(&tcp_server_task, "tcp_client", 4096, NULL, 5, NULL, 1);
-  xTaskCreatePinnedToCore(&client_circle_task, "ext_circle", 4096, NULL, 2, NULL, 0);
-
   spi_display_fill(spi_dev_h, 0xF800);
 
   uint32_t pos_x = DISPLAY_SIZE_Y / 2;
@@ -328,6 +265,7 @@ void app_main()
   while (1)
   {
     joystick_data_get(&server_stick_data);
+
     uint32_t new_pos_x = pos_x + speed * server_stick_data.x;
     uint32_t new_pos_y = pos_y + speed * server_stick_data.y;
 
