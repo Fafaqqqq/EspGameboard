@@ -17,14 +17,14 @@ menu "Example Configuration"
     config PIN_NUM_CLK
         int "CLK pin"
         range 0 48
-        default 19
+        default 18
         help
             CLK pin
  
     config PIN_NUM_CS
         int "CS pin"
         range 0 48
-        default 22
+        default 5
         help
             CS pin
  
@@ -38,14 +38,14 @@ menu "Example Configuration"
     config PIN_NUM_BCKL
         int "BCKL pin"
         range 0 48
-        default 5
+        default 17
         help
             BCKL pin
  
     config PIN_NUM_RST
         int "RST pin"
         range 0 48
-        default 18
+        default 22
         help
             RST pin
  

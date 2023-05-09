@@ -2,7 +2,8 @@
 #include <string.h>
 
 #include "joystick.h"
-#include "spi_display.h"
+// #include "spi_display.h"
+#include "display_api.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -44,7 +45,7 @@ static volatile SemaphoreHandle_t wifi_init_sem = NULL;
 static volatile joystick_data_t client_stick_data;
 static volatile joystick_data_t server_stick_data;
 
-static volatile spi_device_handle_t device_handle;
+// static volatile spi_device_handle_t device_handle;
 
 
 static void client_circle_task(void *pvParameters);
@@ -58,17 +59,13 @@ static void IRAM_ATTR button_isr_handler(void* arg)  {
   /* Unblock the task by releasing the semaphore. */
   xSemaphoreGive( wifi_init_sem);
 
-
-  /* Yield if xHigherPriorityTaskWoken is true.  The 
-  actual macro used here is port specific. */
-  // portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
 }
 
-void spi_pre_transfer_callback(spi_transaction_t* spi_trans)
-{
-  int dc = (int)spi_trans->user;
-  gpio_set_level(CONFIG_PIN_NUM_DC, dc);
-}
+// void spi_pre_transfer_callback(spi_transaction_t* spi_trans)
+// {
+//   int dc = (int)spi_trans->user;
+//   gpio_set_level(CONFIG_PIN_NUM_DC, dc);
+// }
 
 void tcp_server_task(void *pvParameters)
 {
@@ -172,116 +169,149 @@ void tcp_server_task(void *pvParameters)
   vTaskDelete(NULL);
 }
 
-void client_circle_task(void *pvParameters)
-{
-  uint32_t pos_x = 100;
-  uint32_t pos_y = 100;
-  float speed = 4.0f;
+// void client_circle_task(void *pvParameters)
+// {
+//   uint32_t pos_x = 100;
+//   uint32_t pos_y = 100;
+//   float speed = 4.0f;
 
-  while (1)
-  {
-    if (xSemaphoreTake(client_sem, pdMS_TO_TICKS(20)) == pdTRUE)
-    {
-      float dir_x = client_stick_data.x;
-      float dir_y = client_stick_data.y;
+//   while (1)
+//   {
+//     if (xSemaphoreTake(client_sem, pdMS_TO_TICKS(20)) == pdTRUE)
+//     {
+//       float dir_x = client_stick_data.x;
+//       float dir_y = client_stick_data.y;
 
-      ESP_LOGI(TAG, "circle dir: x -> %.2f, y -> %.2f", dir_x, dir_y);
+//       ESP_LOGI(TAG, "circle dir: x -> %.2f, y -> %.2f", dir_x, dir_y);
 
-      // xSemaphoreGive(client_sem);
+//       // xSemaphoreGive(client_sem);
 
-      spi_display_draw_circle(device_handle, pos_x, pos_y, 40, 0xF800);
-      pos_x += speed * dir_x;
-      pos_y += speed * dir_y;
-      vTaskDelay(100 / portTICK_PERIOD_MS);
-      spi_display_draw_circle(device_handle, pos_x, pos_y, 40, 0xFEAF);
-    }
-    else
-    {
-      vTaskDelay(100 / portTICK_PERIOD_MS);
-      // ESP_LOGI(TAG, "Unable take mutex, print skip");
-    }
-    // vTaskDelay(20 / portTICK_PERIOD_MS);
+//       spi_display_draw_circle(device_handle, pos_x, pos_y, 40, 0xF800);
+//       pos_x += speed * dir_x;
+//       pos_y += speed * dir_y;
+//       vTaskDelay(100 / portTICK_PERIOD_MS);
+//       spi_display_draw_circle(device_handle, pos_x, pos_y, 40, 0xFEAF);
+//     }
+//     else
+//     {
+//       vTaskDelay(100 / portTICK_PERIOD_MS);
+//       // ESP_LOGI(TAG, "Unable take mutex, print skip");
+//     }
+//     // vTaskDelay(20 / portTICK_PERIOD_MS);
 
-  }
-}
+//   }
+// }
 
 void app_main()
 {
   ESP_LOGI("main", "Main task stared");
 
-  client_sem = xSemaphoreCreateBinary();
-  server_sem = xSemaphoreCreateBinary();
+  // client_sem = xSemaphoreCreateBinary();
+  // server_sem = xSemaphoreCreateBinary();
 
-  wifi_pre_init();
   wifi_init();
 
-  int ret = joystick_controller_init();
+  joystick_controller_init();
+  display_init();
 
-  if (ret == 0) {
-    ESP_LOGI("main", "Init joystick controller ok. Status code: %d", ret);
-  }
-  else {
-    ESP_LOGI("main", "Cannot init joystick controller. Status code: %d", ret);
-  }
 
-  spi_device_handle_t spi_dev_h;
+  // if (ret == 0) {
+  //   ESP_LOGI("main", "Init joystick controller ok. Status code: %d", ret);
+  // }
+  // else {
+  //   ESP_LOGI("main", "Cannot init joystick controller. Status code: %d", ret);
+  // }
 
-  spi_bus_config_t spi_cfg = {
-      .mosi_io_num = CONFIG_PIN_NUM_MOSI,
-      .miso_io_num = -1,
-      .sclk_io_num = CONFIG_PIN_NUM_CLK,
-      .quadwp_io_num = -1,
-      .quadhd_io_num = -1,
-      .max_transfer_sz = 16*320*2+8,
-      .flags = 0
-  };
+  // spi_device_handle_t spi_dev_h;
 
-  spi_device_interface_config_t spi_dev_cfg = {
-      .clock_speed_hz = 10*1000*1000,           //Clock out at 10 MHz
-      .mode = 0,                                //SPI mode 0
-      .spics_io_num = CONFIG_PIN_NUM_CS,               //CS pin
-      .queue_size = 7,                          //We want to be able to queue 7 transactions at a time
-      .pre_cb = &spi_pre_transfer_callback,  //Specify pre-transfer callback to handle D/C line
-  };
+  // spi_bus_config_t spi_cfg = {
+  //     .mosi_io_num = CONFIG_PIN_NUM_MOSI,
+  //     .miso_io_num = -1,
+  //     .sclk_io_num = CONFIG_PIN_NUM_CLK,
+  //     .quadwp_io_num = -1,
+  //     .quadhd_io_num = -1,
+  //     .max_transfer_sz = 16*320*2+8,
+  //     .flags = 0
+  // };
 
-  ret = spi_bus_initialize(HSPI_HOST, &spi_cfg, SPI_DMA_CH_AUTO);
-  ESP_LOGI(TAG, "spi bus initialize: %d", ret);
+  // spi_device_interface_config_t spi_dev_cfg = {
+  //     .clock_speed_hz = 10*1000*1000,           //Clock out at 10 MHz
+  //     .mode = 0,                                //SPI mode 0
+  //     .spics_io_num = CONFIG_PIN_NUM_CS,               //CS pin
+  //     .queue_size = 7,                          //We want to be able to queue 7 transactions at a time
+  //     .pre_cb = &spi_pre_transfer_callback,  //Specify pre-transfer callback to handle D/C line
+  // };
 
-  ret = spi_bus_add_device(HSPI_HOST, &spi_dev_cfg, &spi_dev_h);
-  ESP_LOGI(TAG, "spi bus add device: %d", ret);
+  // esp_err_t ret = spi_bus_initialize(HSPI_HOST, &spi_cfg, SPI_DMA_CH_AUTO);
+  // ESP_LOGI(TAG, "spi bus initialize: %d", ret);
 
-  spi_display_init(spi_dev_h, DISPLAY_SIZE_X, DISPLAY_SIZE_Y);
+  // ret = spi_bus_add_device(HSPI_HOST, &spi_dev_cfg, &spi_dev_h);
+  // ESP_LOGI(TAG, "spi bus add device: %d", ret);
 
-  device_handle = spi_dev_h;
+  // spi_display_init(spi_dev_h, DISPLAY_SIZE_X, DISPLAY_SIZE_Y);
 
-  spi_display_fill(spi_dev_h, 0xF800);
+  // device_handle = spi_dev_h;
 
-  uint32_t pos_x = DISPLAY_SIZE_Y / 2;
-  uint32_t pos_y = DISPLAY_SIZE_X / 2;
-  spi_display_draw_circle(spi_dev_h, pos_x, pos_y, 40, 0xFFFF);
+  // spi_display_fill(device_handle, 0xF800);
+  spi_display_fill(0xF800);
 
-  float speed = 4.0f;
+
+  int32_t pos_x = 240 / 2;
+  // uint32_t pos_y = DISPLAY_SIZE_X / 2;
+  // spi_display_draw_circle(spi_dev_h, pos_x, pos_y, 40, 0xFFFF);
+
+  float speed = 1.0f;
+  // pixel_t centre;
+  // centre.x = 50;
+  // centre.y = 50;
+
+  // display_send_buffer();
+  // // vTaskDelay(pdMS_TO_TICKS(500));
+
+  // display_fill_color(0xFFFF);
+  // display_draw_circle(&centre, 30, 0x0000);
+  // display_send_buffer();
+  // spi_display_draw_plot(device_handle, pos_x, DISPLAY_SIZE_Y - 100, 0xFFFF);
+  display_draw_plot(pos_x, 0xFFFF);
 
   while (1)
   {
+
     joystick_data_get(&server_stick_data);
 
     uint32_t new_pos_x = pos_x + speed * server_stick_data.x;
-    uint32_t new_pos_y = pos_y + speed * server_stick_data.y;
+    // uint32_t new_pos_y = pos_y + speed * server_stick_data.y;
 
-    if (new_pos_x == pos_x && new_pos_y == pos_y)
+    if (new_pos_x == pos_x)
     {
       continue;
     }
+    // spi_display_fill(0xF800);
+    // display_fill_color(0xFFFF);
+  //   display_send_buffer();
+    // spi_display_draw_circle(spi_dev_h, pos_x, pos_y, 40, 0xF800);
 
-    spi_display_draw_circle(spi_dev_h, pos_x, pos_y, 40, 0xF800);
+    // centre.x += 1;
+    // centre.y += 1;
+    
 
-    vTaskDelay(70 / portTICK_PERIOD_MS);
+    // display_fill_color(0xFFFF);
+    // display_draw_circle(&centre, 30, 0x0000);
+    // display_send_buffer();
+    // spi_display_draw_plot(device_handle, pos_x, DISPLAY_SIZE_Y - 100, 0xF800);
+    display_draw_plot(pos_x, 0xF800);
+
+    vTaskDelay(20 / portTICK_PERIOD_MS);
 
     pos_x = new_pos_x;
-    pos_y = new_pos_y;
 
-    spi_display_draw_circle(spi_dev_h, pos_x, pos_y, 40, 0xFFFF);
+
+    // pos_y = new_pos_y;
+
+    // spi_display_draw_circle(spi_dev_h, pos_x, pos_y, 40, 0xFFFF);
+      // spi_display_draw_plot(device_handle, pos_x, DISPLAY_SIZE_Y - 100, 0xFFFF);
+    display_draw_plot(pos_x, 0xFFFF);
+    
   }
   
 }

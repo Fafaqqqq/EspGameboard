@@ -45,5 +45,7 @@ void spi_driver_display_cmd_send(spi_display_handle_t spi_display_h, uint8_t cmd
 void spi_driver_display_data_send(spi_display_handle_t spi_display_h, const uint8_t *data, int len);
 void spi_driver_display_write_data(spi_display_handle_t spi_display_h, uint8_t *buff, size_t buff_size);
 void spi_driver_display_transaction_finish(spi_display_handle_t spi_display_h, uint32_t transaction_cnt);
-
+void spi_driver_send_image(spi_display_handle_t spi_display_h, uint32_t size_x, uint32_t size_y, uint16_t* buf_img);
+void spi_driver_send_block(spi_display_handle_t spi_display_h, uint32_t x, uint32_t y, 
+                             uint32_t size_x, uint32_t size_y, uint16_t* buf_img);
 #endif

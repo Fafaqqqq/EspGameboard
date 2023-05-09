@@ -1,10 +1,13 @@
 #include "wifi_init.h"
 
+#include "esp_log.h"
 #include "esp_mac.h"
 #include "esp_wifi.h"
 #include "esp_event.h"
 
 #include "nvs_flash.h"
+
+#include <string.h>
 
 #define GAMEBOARD_ESP_WIFI_SSID      CONFIG_ESP_WIFI_SSID
 #define GAMEBOARD_ESP_WIFI_PASS      CONFIG_ESP_WIFI_PASSWORD
@@ -28,7 +31,7 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base,
   }
 }
 
-void wifi_pre_init()
+void wifi_init()
 {
   esp_err_t ret = nvs_flash_init();
 
@@ -40,10 +43,7 @@ void wifi_pre_init()
   }
 
   ESP_ERROR_CHECK(ret);
-}
 
-void wifi_init()
-{
   wifi_init_config_t wifi_init_cfg = WIFI_INIT_CONFIG_DEFAULT();
 
   ESP_ERROR_CHECK(esp_netif_init());
@@ -79,5 +79,5 @@ void wifi_init()
 
   ESP_LOGI(WIFI_TAG, "wifi_init_softap finished. SSID:%s password:%s channel:%d",
             GAMEBOARD_ESP_WIFI_SSID, GAMEBOARD_ESP_WIFI_PASS, GAMEBOARD_ESP_WIFI_CHANNEL);
-  return 0;
+            
 }

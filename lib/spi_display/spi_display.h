@@ -8,8 +8,8 @@
 #include "freertos/task.h"
 
 enum {
-  DISPLAY_SIZE_X = 320,
-  DISPLAY_SIZE_Y = 240,
+  DISPLAY_SIZE_X = 240,
+  DISPLAY_SIZE_Y = 320,
 };
 
 typedef enum {
@@ -27,5 +27,8 @@ typedef struct {
 void spi_display_fill(spi_device_handle_t spi, uint16_t color);
 void spi_display_draw_circle(spi_device_handle_t spi, uint16_t x0, uint16_t y0, int r, uint16_t color);
 void spi_display_init(spi_device_handle_t spi, uint16_t w_size, uint16_t h_size);
+void spi_display_draw_pixel(spi_device_handle_t spi, int x, int y, uint16_t color);
+void spi_display_draw_plot(spi_device_handle_t spi, uint16_t x0, uint16_t y0, uint16_t color);
+
 
 #endif

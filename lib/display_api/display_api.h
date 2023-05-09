@@ -3,18 +3,25 @@
 
 #include <stdint.h>
 
-typedef struct point
+typedef struct pixel
 {
   uint32_t x;
   uint32_t y;
-} point_t;
+} pixel_t;
+
 
 void display_init();
-void display_draw_pixel(const point_t* pixel_position);
+void display_draw_pixel(uint32_t x, uint32_t y, uint16_t color);
 void display_send_buffer();
 
-void display_draw_circle(const point_t* center, uint32_t radius, uint16_t color);
+void display_draw_circle(const pixel_t* center, uint32_t radius, uint16_t color);
 void display_fill_color(uint16_t color);
-void display_fill_data(uint16_t* data);
+void display_fill_data(const uint16_t* data);
+
+void display_draw_plot(int32_t x, uint16_t color);
+
+
+void spi_display_fill(uint16_t color);
+
 
 #endif

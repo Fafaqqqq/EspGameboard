@@ -89,19 +89,20 @@ int spi_driver_display_init(const spi_bus_config_t*              spi_bus_cfg,
 {
   esp_err_t ret = 0;
 
-  if (NULL != spi_display_h)
+  if (NULL != *spi_display_h)
   {
+    ESP_LOGE(_tag, "ERROR!!!");
     return -__LINE__;
   }
 
-  ret = spi_bus_initialize(HSPI_HOST, spi_bus_cfg, SPI_DMA_CH_AUTO);
+  ret = spi_bus_initialize(VSPI_HOST, spi_bus_cfg, SPI_DMA_CH_AUTO);
   ESP_LOGI(_tag, "spi bus initialize: %d", ret);
   if (0 != ret)
   {
     return ret;
   }
 
-  ret = spi_bus_add_device(HSPI_HOST, spi_device_cfg, (spi_device_handle_t*)&_spi_display_h);
+  ret = spi_bus_add_device(VSPI_HOST, spi_device_cfg, (spi_device_handle_t*)&_spi_display_h);
   ESP_LOGI(_tag, "spi bus add device: %d", ret);
   if (0 != ret)
   {
@@ -216,5 +217,102 @@ void spi_driver_display_write_data(spi_display_handle_t spi_display_h, uint8_t *
 
     data += chunk_size;
     size -= chunk_size;
+  }
+}
+
+void spi_driver_send_block(spi_display_handle_t spi_display_h, uint32_t x, uint32_t y, 
+                             uint32_t size_x, uint32_t size_y, uint16_t* buf_img)
+{
+  // ESP_LOGI("SPI DRIVER", "x: %lu, y: %lu, size_x: %lu, size_y: %lu", x, y, size_x, size_y);
+
+  esp_err_t ret;
+  int i;
+  static spi_transaction_t trans[6];
+  for (i = 0; i < 6; i++)
+  {
+    memset(&trans[i], 0, sizeof(spi_transaction_t));
+    if ((i & 1) == 0)
+    {
+      // Even transfers are commands
+      trans[i].length = 8;
+      trans[i].user = (void *)0;
+    }
+    else
+    {
+      // Odd transfers are data
+      trans[i].length = 8 * 4;
+      trans[i].user = (void *)1;
+    }
+
+    if (i < 5)
+    {
+      trans[i].flags = SPI_TRANS_USE_TXDATA;
+    }
+  }
+  trans[0].tx_data[0] = 0x2A;                              // Column Address Set
+  trans[1].tx_data[0] = (x >> 8) & 0xFF;                  // Start Col High
+  trans[1].tx_data[1] = x & 0xFF;                         // Start Col Low
+  trans[1].tx_data[2] = (size_x >> 8) & 0xFF;              // End Col High
+  trans[1].tx_data[3] = size_x & 0xFF;                     // End Col Low
+  trans[2].tx_data[0] = 0x2B;                              // Page address set
+  trans[3].tx_data[0] = (y >> 8) & 0xFF;                  // Start page high
+  trans[3].tx_data[1] = y & 0xFF;                         // start page low
+  trans[3].tx_data[2] = (size_y >> 8) & 0xFF;              // end page high
+  trans[3].tx_data[3] = size_y & 0xFF;                     // end page low
+  trans[4].tx_data[0] = 0x2C;                              // memory write
+  trans[5].tx_buffer = buf_img;                            // finally send the line data
+  trans[5].length = (size_x) * (size_y) * 2 * 8;   // Data length, in bits
+  trans[5].flags = 0;                                      // undo SPI_TRANS_USE_TXDATA flag
+  for (i = 0; i < 6; i++)
+  {
+    ret = spi_device_queue_trans(spi_display_h, &trans[i], portMAX_DELAY);
+    // vTaskDelay(pdMS_TO_TICKS(60));
+    // ESP_LOGI(_tag, "spi_device_queue_trans ret %d", ret);
+    assert(ret == ESP_OK);
+  }
+}
+
+void spi_driver_send_image(spi_display_handle_t spi_display_h, uint32_t size_x, uint32_t size_y, uint16_t* buf_img)
+{
+  esp_err_t ret;
+  int x;
+  static spi_transaction_t trans[6];
+  for (x = 0; x < 6; x++)
+  {
+    memset(&trans[x], 0, sizeof(spi_transaction_t));
+    if ((x & 1) == 0)
+    {
+      // Even transfers are commands
+      trans[x].length = 8;
+      trans[x].user = (void *)0;
+    }
+    else
+    {
+      // Odd transfers are data
+      trans[x].length = 8 * 4;
+      trans[x].user = (void *)1;
+    }
+    trans[x].flags = SPI_TRANS_USE_TXDATA;
+  }
+  trans[0].tx_data[0] = 0x2A;                              // Column Address Set
+  trans[1].tx_data[0] = 0;                                 // Start Col High
+  trans[1].tx_data[1] = 0;                                 // Start Col Low
+  trans[1].tx_data[2] = (size_x >> 8) & 0xFF;              // End Col High
+  trans[1].tx_data[3] = size_x & 0xFF;                     // End Col Low
+  trans[2].tx_data[0] = 0x2B;                              // Page address set
+  trans[3].tx_data[0] = 0;                                 // Start page high
+  trans[3].tx_data[1] = 0;                                 // start page low
+  trans[3].tx_data[2] = (size_y >> 8) & 0xFF;              // end page high
+  trans[3].tx_data[3] = size_y & 0xFF;                     // end page low
+  trans[4].tx_data[0] = 0x2C;                              // memory write
+  trans[5].tx_buffer = buf_img;                            // finally send the line data
+  trans[5].length = (size_x) * (size_y) * 2 * 8;   // Data length, in bits
+  trans[5].flags = 0;                                      // undo SPI_TRANS_USE_TXDATA flag
+  for (x = 0; x < 6; x++)
+  {
+    ret = spi_device_queue_trans(spi_display_h, &trans[x], portMAX_DELAY);
+    vTaskDelay(pdMS_TO_TICKS(60));
+    ESP_LOGI(_tag, "spi_device_queue_trans ret %d", ret);
+    assert(ret == ESP_OK);
   }
 }

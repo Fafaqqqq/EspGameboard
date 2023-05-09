@@ -372,6 +372,18 @@ void spi_display_draw_circle(spi_device_handle_t spi, uint16_t x0, uint16_t y0, 
 
 }
 
+void spi_display_draw_plot(spi_device_handle_t spi, uint16_t x0, uint16_t y0, uint16_t color)
+{
+  for (uint32_t i = x0; i < x0 + 50; i++)
+  {
+    for (uint32_t j = y0; j < y0 + 2; j++)
+    {
+      spi_display_draw_pixel(spi, i, j, color);
+
+    }
+  }
+}
+
 //-------------------------------------------------------------------
 void spi_display_init(spi_device_handle_t spi, uint16_t w_size, uint16_t h_size)
 {

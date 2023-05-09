@@ -15,7 +15,9 @@
     "nvs_flash.h": "c",
     "gpio.h": "c",
     "adc_oneshot.h": "c",
-    "esp_wifi.h": "c"
+    "esp_wifi.h": "c",
+    "display_api.h": "c",
+    "random": "c"
   },
   "cmake.configureOnOpen": false,
   "C_Cpp.errorSquiggles": "disabled"
