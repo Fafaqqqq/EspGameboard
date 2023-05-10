@@ -1,0 +1,21 @@
+esp_rom_gpio_pad_select_gpio(BUTTON_GPIO_PIN);
+gpio_set_direction(BUTTON_GPIO_PIN, GPIO_MODE_INPUT);
+gpio_set_pull_mode(BUTTON_GPIO_PIN, GPIO_PULLUP_ONLY);
+gpio_set_intr_type(BUTTON_GPIO_PIN, GPIO_INTR_POSEDGE);
+
+esp_err_t err = gpio_intr_enable(BUTTON_GPIO_PIN);
+if (err != ESP_OK) {
+    printf("Failed to enable interrupt for button\n");
+}
+
+ret = gpio_install_isr_service(0); // Устанавливаем службу обработки прерываний GPIO
+if (ret == ESP_OK)
+{
+    ESP_LOGE(TAG, "gpio_install_isr_service ret = %d", ret);
+}
+
+ret = gpio_isr_handler_add(BUTTON_GPIO_PIN, &button_isr_handler, NULL); // Регистрируем обработчик прерывания на пине кнопки
+if (ret == ESP_OK)
+{
+    ESP_LOGE(TAG, "gpio_isr_handler_add ret = %d", ret);
+}
