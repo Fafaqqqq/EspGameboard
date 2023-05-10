@@ -48,7 +48,7 @@ menu "Example Configuration"
         default 22
         help
             RST pin
- 
+    
     config ESP_WIFI_SSID
             string "WiFi SSID"
             default "myssid"
@@ -72,5 +72,4 @@ menu "Example Configuration"
             default 4
             help
                 Max number of the STA connects to AP.
-
 endmenu
