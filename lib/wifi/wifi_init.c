@@ -135,6 +135,7 @@ void tcp_server_task(void *pvParameters)
     {
       if (xSemaphoreTake(access_mtx, pdMS_TO_TICKS(50)) != pdTRUE) continue;
       int err = send(accept_sock, tx_buffer, tx_size, 0);
+      // ESP_LOGI(WIFI_TAG, "send %ld bytes", tx_size);
       xSemaphoreGive(access_mtx);
 
       if (err < 0)
@@ -144,7 +145,7 @@ void tcp_server_task(void *pvParameters)
       }
     }
 
-    vTaskDelay(pdMS_TO_TICKS(20));
+    vTaskDelay(pdMS_TO_TICKS(50));
   }
 
   ESP_LOGI(WIFI_TAG, "Closed");
@@ -152,7 +153,7 @@ void tcp_server_task(void *pvParameters)
   vTaskDelete(NULL);
 }
 
-int32_t wifi_get_rx(uint8_t* data, uint32_t* size)
+int32_t wifi_get_rx(void* data, uint32_t* size)
 {
   if (xSemaphoreTake(access_mtx, pdMS_TO_TICKS(50)) != pdTRUE)
   {
@@ -166,7 +167,7 @@ int32_t wifi_get_rx(uint8_t* data, uint32_t* size)
   return 0;
 }
 
-int32_t wifi_set_tx(const uint8_t* data, uint32_t size)
+int32_t wifi_set_tx(const void* data, uint32_t size)
 {
   if (xSemaphoreTake(access_mtx, pdMS_TO_TICKS(50)) != pdTRUE)
   {
@@ -183,7 +184,9 @@ int32_t wifi_set_tx(const uint8_t* data, uint32_t size)
 void wifi_init()
 {
   access_mtx = xSemaphoreCreateMutex();
-
+  memset(tx_buffer, 0, TRX_BUF_SIZE);
+  memset(rx_buffer, 0, TRX_BUF_SIZE);
+  
   esp_err_t ret = nvs_flash_init();
 
   if (ret == ESP_ERR_NVS_NO_FREE_PAGES || 
