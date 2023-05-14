@@ -16,6 +16,7 @@ typedef enum {
 typedef struct {
   float x;
   float y;
+  int is_pressed;
 } joystick_data_t;
 
 joystick_status_t joystick_controller_init();

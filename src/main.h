@@ -21,6 +21,7 @@
 #include "wifi.h"
 
 #include "menu.h"
+#include "pong.h"
 
 //---------------------------------------------------------------------
 #endif /* MAIN_MAIN_H_ */

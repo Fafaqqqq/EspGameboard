@@ -29,7 +29,7 @@ typedef struct
 } MenuItem_t;
 
 static MenuItem_t menu_items[] = {
-  { "Pong", NULL },
+  { "Pong", PongGameLoop },
   { "Snake", NULL },
   { "Tanks", NULL },
 };
@@ -44,31 +44,33 @@ void StartMenu()
   
   for (uint32_t i = 0; i < 3; i++)
   {
-    // if (i == current) 
-    // {
-    //   DisplayDrawSymbol(TFT9341_WIDTH / 2 - 10 - 4 * 17, TFT9341_HEIGHT / 2 - 20 + i * 24, '>');
-    // }
+
     DisplayDrawSymbol(TFT9341_WIDTH / 2 - 10 - 3 * 17, TFT9341_HEIGHT / 2 - 20 + i * 24, i + 1 + '0');
     DisplayDrawSymbol(TFT9341_WIDTH / 2 - 10 - 2 * 17, TFT9341_HEIGHT / 2 - 20 + i * 24, '.');
 
     DisplayDrawString(menu_items[i].name, TFT9341_WIDTH / 2 - 30 + 17, TFT9341_HEIGHT / 2 - 20 + i * 24);
   }
 
-  joystick_data_t joystick_pos;
+  joystick_data_t joystick_data;
   
   DisplayDrawSymbol(TFT9341_WIDTH / 2 - 10 - 4 * 17, TFT9341_HEIGHT / 2 - 20 + current * 24, '>');
 
 
   while (1)
   {
-    joystick_data_get(&joystick_pos);
+    joystick_data_get(&joystick_data);
+
+    if (joystick_data.is_pressed == 1)
+    {
+      menu_items[current].func(NULL);
+    }
 
     // ESP_LOGI("Menu", "WORK");
-    if (fabs(joystick_pos.y) == 1.0)
+    if (fabs(joystick_data.y) == 1.0)
     {
       DisplayDrawSymbol(TFT9341_WIDTH / 2 - 10 - 4 * 17, TFT9341_HEIGHT / 2 - 20 + current * 24, ' ');
 
-      current += joystick_pos.y; 
+      current += joystick_data.y; 
       if (current == 3)
       {
         current = 0;

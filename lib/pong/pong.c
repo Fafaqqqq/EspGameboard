@@ -10,7 +10,7 @@ inline void DrawBall(uint32_t x, uint32_t y, uint16_t color)
   DisplayFillRect(x, y, x + 5, y + 5, color);
 }
 
-int PongGameLoop()
+int PongGameLoop(void*)
 {
   DisplayFill(TFT9341_BLACK);
 
@@ -35,7 +35,7 @@ int PongGameLoop()
   DisplayDrawSymbol(TFT9341_WIDTH / 2 + 40, 5, score2);
   DisplayDrawLine(TFT9341_WHITE, 0, 29, TFT9341_WIDTH, 29);
 
-  int32_t ball_speed_x = 2;
+  int32_t ball_speed_x = 6;
   int32_t ball_speed_y = 0;
 
   int16_t ball_x = TFT9341_WIDTH / 2;
