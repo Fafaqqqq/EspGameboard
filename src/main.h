@@ -20,5 +20,7 @@
 #include "joystick.h"
 #include "wifi.h"
 
+#include "menu.h"
+
 //---------------------------------------------------------------------
 #endif /* MAIN_MAIN_H_ */
