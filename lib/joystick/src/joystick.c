@@ -41,7 +41,7 @@ joystick_status_t joystick_data_get(joystick_data_t* joystick_data) {
   uint32_t joystick_y_val = adc1_get_raw(JOYSTICK_Y_CHANNEL); // считываем значение оси Y
   joystick_data->is_pressed = !gpio_get_level(GPIO_NUM_15);
 
-  ESP_LOGI("joystick", "is pressed: %d", joystick_data->is_pressed);
+  // ESP_LOGI("joystick", "is pressed: %d", joystick_data->is_pressed);
   
   joystick_data->x = roundf(((float)joystick_x_val / 2048.0f - (float)_joystick_center.x / 2048.0f) * 100.0f) / 100.0f;
   joystick_data->y = roundf(((float)joystick_y_val / 2048.0f - (float)_joystick_center.y / 2048.0f) * 100.0f) / 100.0f;

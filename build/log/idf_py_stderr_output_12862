@@ -1,0 +1,14 @@
+[0;33m--- idf_monitor on /dev/ttyUSB1 115200 ---[0m
+[0;33m--- Quit: Ctrl+] | Menu: Ctrl+T | Help: Ctrl+T followed by Ctrl+H ---[0m
+[1;31mNone[0m
+[0;33mWaiting for the device to reconnect[0m[0;33m[0m
+[1;31mNone[0m
+[0;33mWaiting for the device to reconnect[0m[0;33m[0m
+[0;33mELF file not found. You need to build & flash the project before running 'monitor', and the binary on the device must match the one in the build directory exactly. [0m
+[1;31mNone[0m
+[0;33mWaiting for the device to reconnect[0m[0;33m[0m
+[0;33mELF file not found. You need to build & flash the project before running 'monitor', and the binary on the device must match the one in the build directory exactly. [0m
+[1;31mNone[0m
+[0;33mWaiting for the device to reconnect[0m[0;33m[0m
+[0;33mELF file not found. You need to build & flash the project before running 'monitor', and the binary on the device must match the one in the build directory exactly. [0m
+E

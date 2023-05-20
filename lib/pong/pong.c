@@ -1,8 +1,14 @@
 #include "pong.h"
 
+#include "freertos/FreeRTOS.h"
+#include "freertos/queue.h"
+
+#include "esp_log.h"
+
 #include "display_api.h"
 #include "joystick.h"
 #include "wifi.h"
+#include "button_pad.h"
 
 //------------------------------------------------
 inline void DrawBall(uint32_t x, uint32_t y, uint16_t color)
@@ -10,8 +16,22 @@ inline void DrawBall(uint32_t x, uint32_t y, uint16_t color)
   DisplayFillRect(x, y, x + 5, y + 5, color);
 }
 
+static QueueHandle_t button_queue = NULL;
+
+static void red_button_intr(void *pvParametrs)
+{
+  uint32_t button_pressed = 1;
+
+  ESP_LOGI("PONG", "BUTTON PRESSED");
+  xQueueSend(button_queue, &button_pressed, pdMS_TO_TICKS(20));
+}
+
 int PongGameLoop(void*)
 {
+  button_queue = xQueueCreate(128, sizeof(uint32_t));
+
+  button_register_intr(BUTTON_RED, red_button_intr, NULL);
+
   DisplayFill(TFT9341_BLACK);
 
   joystick_data_t joystick_pos;
@@ -41,19 +61,34 @@ int PongGameLoop(void*)
   int16_t ball_x = TFT9341_WIDTH / 2;
   int16_t ball_y = TFT9341_HEIGHT / 2;
 
-  uint32_t        wifi_tx_size;
+  uint32_t wifi_tx_size;
+  uint32_t button_pressed = 0;
 
   while (1)
   {
+    if (xQueueReceive(button_queue, &button_pressed, pdMS_TO_TICKS(20)) == pdTRUE)
+    {
+      if (button_pressed == 1)
+      {
+        return 0;
+      }
+    }
+
     joystick_data_get(&joystick_pos);
 
+
+    wifi_set_tx(&joystick_pos, sizeof(joystick_pos));
     int ret = wifi_get_rx(&ext_player, &wifi_tx_size);
     if (ret != 0)
     {
       memset(&ext_player, 0, sizeof(ext_player));
     }
-    ret = wifi_set_tx(&joystick_pos, sizeof(joystick_pos));
+
     
+    // ESP_LOGI("PONG", "wifi ret %d", ret);
+
+    // ESP_LOGI("PONG", "Ext player y: %d", ext_pos_y);
+    // ESP_LOGI("PONG", "new frame");
 
     if (TFT9341_WIDTH / 2 + 5 <= ball_x || ball_x <= TFT9341_WIDTH / 2 + 5)
     {
@@ -144,6 +179,12 @@ int PongGameLoop(void*)
       ext_pos_y += ext_player.y * speed;
       DisplayFillRect(ext_pos_x, ext_pos_y, ext_pos_x + 3, ext_pos_y + 41, TFT9341_WHITE);
     }
+
+    // ESP_LOGI("PONG", "work");
+    ESP_LOGI("PONG", "joystick pos x: %d, y: %d", pos_x, pos_y);
+    ESP_LOGI("PONG", "ext pos x: %d, y: %d", ext_pos_x, ext_pos_y);
+    ESP_LOGI("PONG", "ball pos x: %d, y: %d", ball_x, ball_y);
+
 
     vTaskDelay(pdMS_TO_TICKS(50));
   }
