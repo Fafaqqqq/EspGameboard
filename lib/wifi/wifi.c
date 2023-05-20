@@ -457,7 +457,7 @@ void wifi_init_sta
     ESP_LOGE(WIFI_TAG, "UNEXPECTED EVENT");
   }
 
-  xTaskCreatePinnedToCore(tcp_client_task, "tcp client task", 4096, NULL, 1, &tcp_task_handle_, 1);
+  // xTaskCreatePinnedToCore(tcp_client_task, "tcp client task", 4096, NULL, 1, &tcp_task_handle_, 1);
 
   // xSemaphoreTake(accept_mtx_, portMAX_DELAY);
 }
@@ -511,7 +511,7 @@ void wifi_init_ap
   ESP_LOGI(WIFI_TAG, "wifi_init_softap finished. SSID:%s password:%s channel:%d",
             GAMEBOARD_ESP_WIFI_SSID, GAMEBOARD_ESP_WIFI_PASS, GAMEBOARD_ESP_WIFI_CHANNEL);
 
-  xTaskCreatePinnedToCore(tcp_server_task, "tcp server task", 4096, NULL, 1, &tcp_task_handle_, 1);
+  // xTaskCreatePinnedToCore(tcp_server_task, "tcp server task", 4096, NULL, 1, &tcp_task_handle_, 1);
 
-  xSemaphoreTake(accept_mtx_, portMAX_DELAY);
+  // xSemaphoreTake(accept_mtx_, portMAX_DELAY);
 }

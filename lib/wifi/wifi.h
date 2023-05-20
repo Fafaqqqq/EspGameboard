@@ -3,6 +3,14 @@
 
 #include <stdint.h>
 
+typedef int socket_t;
+
+socket_t wifi_accept();
+socket_t wifi_connect();
+
+int32_t wifi_transmit(socket_t sock, const void* local, int32_t size);
+int32_t wifi_recieve(socket_t sock, void* local, int32_t* size, uint32_t max_size);
+
 void wifi_init();
 
 void wifi_init_ap

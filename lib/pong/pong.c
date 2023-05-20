@@ -26,8 +26,20 @@ static void red_button_intr(void *pvParametrs)
   xQueueSend(button_queue, &button_pressed, pdMS_TO_TICKS(20));
 }
 
-int PongGameLoop(void*)
+int PongGameLoop(void* pvParams)
 {
+  int is_owner = (int)pvParams;
+  socket_t sock = 0;
+
+  if (is_owner)
+  {
+    sock = wifi_accept();
+  }
+  else
+  {
+    sock = wifi_connect();
+  }
+
   button_queue = xQueueCreate(128, sizeof(uint32_t));
 
   button_register_intr(BUTTON_RED, red_button_intr, NULL);
@@ -64,6 +76,8 @@ int PongGameLoop(void*)
   uint32_t wifi_tx_size;
   uint32_t button_pressed = 0;
 
+  int ret = 0;
+
   while (1)
   {
     if (xQueueReceive(button_queue, &button_pressed, pdMS_TO_TICKS(20)) == pdTRUE)
@@ -76,13 +90,55 @@ int PongGameLoop(void*)
 
     joystick_data_get(&joystick_pos);
 
-
-    wifi_set_tx(&joystick_pos, sizeof(joystick_pos));
-    int ret = wifi_get_rx(&ext_player, &wifi_tx_size);
-    if (ret != 0)
+    if (is_owner)
     {
-      memset(&ext_player, 0, sizeof(ext_player));
+      // ret = wifi_get_rx(&ext_player, &wifi_tx_size);
+      // if (ret != 0)
+      // {
+      //   memset(&ext_player, 0, sizeof(ext_player));
+      // }
+      // wifi_set_tx(&joystick_pos, sizeof(joystick_pos));
+
+      if (wifi_transmit(sock, &joystick_pos, sizeof(joystick_pos)) != 0)
+      {
+        return -__LINE__;
+      }
+      int32_t recv_size = 0;
+      if (wifi_recieve(sock, &ext_player, &recv_size, sizeof(joystick_pos)) != 0)
+      {
+        return -__LINE__;
+      }
+
+      if (recv_size != sizeof(ext_player))
+      {
+        return -__LINE__;
+      }
     }
+    else
+    {
+      int32_t recv_size = 0;
+      if (wifi_recieve(sock, &ext_player, &recv_size, sizeof(joystick_pos)) != 0)
+      {
+        return -__LINE__;
+      }
+
+      if (recv_size != sizeof(ext_player))
+      {
+        return -__LINE__;
+      }
+
+      if (wifi_transmit(sock, &joystick_pos, sizeof(joystick_pos)) != 0)
+      {
+        return -__LINE__;
+      }
+      // wifi_set_tx(&joystick_pos, sizeof(joystick_pos));
+      // ret = wifi_get_rx(&ext_player, &wifi_tx_size);
+      // if (ret != 0)
+      // {
+      //   memset(&ext_player, 0, sizeof(ext_player));
+      // }
+    }
+    
 
     
     // ESP_LOGI("PONG", "wifi ret %d", ret);
@@ -90,81 +146,81 @@ int PongGameLoop(void*)
     // ESP_LOGI("PONG", "Ext player y: %d", ext_pos_y);
     // ESP_LOGI("PONG", "new frame");
 
-    if (TFT9341_WIDTH / 2 + 5 <= ball_x || ball_x <= TFT9341_WIDTH / 2 + 5)
-    {
-      DisplayDrawLine(TFT9341_WHITE, TFT9341_WIDTH / 2, 0, TFT9341_WIDTH / 2, TFT9341_HEIGHT);
-    }
+    // if (TFT9341_WIDTH / 2 + 5 <= ball_x || ball_x <= TFT9341_WIDTH / 2 + 5)
+    // {
+    //   DisplayDrawLine(TFT9341_WHITE, TFT9341_WIDTH / 2, 0, TFT9341_WIDTH / 2, TFT9341_HEIGHT);
+    // }
 
-    DrawBall(ball_x, ball_y, TFT9341_BLACK);
+    // DrawBall(ball_x, ball_y, TFT9341_BLACK);
 
-    if (ball_x >= pos_x - 5 && pos_y <= ball_y && ball_y <= pos_y + 35)
-    {
-      if (ball_y - pos_y <= 20)
-      {
-        ball_speed_y = -2;
-      }
-      else if (ball_y - pos_y >= 22)
-      {
-        ball_speed_y = 2;
-      }
-      else if (ball_y - pos_y == 21)
-      {
-        ball_speed_y = 0;
-      }
+    // if (ball_x >= pos_x - 5 && pos_y <= ball_y && ball_y <= pos_y + 35)
+    // {
+    //   if (ball_y - pos_y <= 20)
+    //   {
+    //     ball_speed_y = -2;
+    //   }
+    //   else if (ball_y - pos_y >= 22)
+    //   {
+    //     ball_speed_y = 2;
+    //   }
+    //   else if (ball_y - pos_y == 21)
+    //   {
+    //     ball_speed_y = 0;
+    //   }
 
-      ball_speed_x = -ball_speed_x;
-    }
-    else if (ball_x <= ext_pos_x + 3 && ext_pos_y <= ball_y && ball_y <= ext_pos_y + 35)
-    {
-      if (ball_y - ext_pos_y <= 20)
-      {
-        ball_speed_y = -2;
-      }
-      else if (ball_y - ext_pos_y >= 22)
-      {
-        ball_speed_y = 2;
-      }
-      else if (ball_y - ext_pos_y == 21)
-      {
-        ball_speed_y = 0;
-      }
+    //   ball_speed_x = -ball_speed_x;
+    // }
+    // else if (ball_x <= ext_pos_x + 3 && ext_pos_y <= ball_y && ball_y <= ext_pos_y + 35)
+    // {
+    //   if (ball_y - ext_pos_y <= 20)
+    //   {
+    //     ball_speed_y = -2;
+    //   }
+    //   else if (ball_y - ext_pos_y >= 22)
+    //   {
+    //     ball_speed_y = 2;
+    //   }
+    //   else if (ball_y - ext_pos_y == 21)
+    //   {
+    //     ball_speed_y = 0;
+    //   }
 
-      ball_speed_x = -ball_speed_x;
-    }
-    else if (ball_x <= 0 || ball_x >= TFT9341_WIDTH - 5)
-    {
-      ball_speed_x = -ball_speed_x;
-    }
-    else if (ball_y <= 30 || ball_y >= TFT9341_HEIGHT - 5)
-    {
-      ball_speed_y = -ball_speed_y;
-    }
+    //   ball_speed_x = -ball_speed_x;
+    // }
+    // else if (ball_x <= 0 || ball_x >= TFT9341_WIDTH - 5)
+    // {
+    //   ball_speed_x = -ball_speed_x;
+    // }
+    // else if (ball_y <= 30 || ball_y >= TFT9341_HEIGHT - 5)
+    // {
+    //   ball_speed_y = -ball_speed_y;
+    // }
 
-    if (ball_x <= 0)
-    {
-      score1++;
-      if (score1 == '9' + 1)
-      {
-        score1 = '0';
-      }
+    // if (ball_x <= 0)
+    // {
+    //   score1++;
+    //   if (score1 == '9' + 1)
+    //   {
+    //     score1 = '0';
+    //   }
 
-      DisplayDrawSymbol(TFT9341_WIDTH / 2 - 40, 5, score1);
-    }
-    else if (ball_x >= TFT9341_WIDTH - 5)
-    {
-      score2++;
-      if (score2 == '9' + 1)
-      {
-        score2 = '0';
-      }
+    //   DisplayDrawSymbol(TFT9341_WIDTH / 2 - 40, 5, score1);
+    // }
+    // else if (ball_x >= TFT9341_WIDTH - 5)
+    // {
+    //   score2++;
+    //   if (score2 == '9' + 1)
+    //   {
+    //     score2 = '0';
+    //   }
 
-      DisplayDrawSymbol(TFT9341_WIDTH / 2 + 40, 5, score2);
-    }
+    //   DisplayDrawSymbol(TFT9341_WIDTH / 2 + 40, 5, score2);
+    // }
 
-    ball_x += ball_speed_x;
-    ball_y += ball_speed_y;
+    // ball_x += ball_speed_x;
+    // ball_y += ball_speed_y;
 
-    DrawBall(ball_x, ball_y, TFT9341_WHITE);
+    // DrawBall(ball_x, ball_y, TFT9341_WHITE);
 
     if (pos_y + joystick_pos.y * speed > 30 && pos_y + joystick_pos.y * speed <= TFT9341_HEIGHT - 43)
     {

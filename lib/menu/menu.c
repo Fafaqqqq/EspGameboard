@@ -72,7 +72,7 @@ static void StartRoomsMenu(MenuItemFunc_t exec_game)
       
       rooms_menu_items[current].func("espgameroom");
       // wifi_init_ap("espgameroom", "espgameroom");
-      exec_game(NULL);
+      exec_game((void*)current);
       break;
     }
 
