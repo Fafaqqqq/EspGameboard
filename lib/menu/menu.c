@@ -29,7 +29,7 @@ typedef struct
 } MenuItem_t;
 
 static MenuItem_t menu_items[] = {
-  { "Pong", PongGameLoop },
+  { "Pong", pong_game },
   { "Snake", NULL },
   { "Tanks", NULL },
 };

@@ -281,7 +281,7 @@ static void tcp_client_task
   }
   ESP_LOGI(WIFI_TAG, "Successfully connected to server");
 
-  // xSemaphoreGive(accept_mtx_);
+  xSemaphoreGive(accept_mtx_);
 
   while (1)
   {
@@ -386,7 +386,7 @@ void wifi_init()
   }
 }
 
-void wifi_init_sta
+int wifi_init_sta
 (
   void *pvParams
 )
@@ -460,9 +460,10 @@ void wifi_init_sta
   // xTaskCreatePinnedToCore(tcp_client_task, "tcp client task", 4096, NULL, 1, &tcp_task_handle_, 1);
 
   // xSemaphoreTake(accept_mtx_, portMAX_DELAY);
+  return 0;
 }
 
-void wifi_init_ap
+int wifi_init_ap
 (
   void *pvParams
 )
@@ -514,4 +515,5 @@ void wifi_init_ap
   // xTaskCreatePinnedToCore(tcp_server_task, "tcp server task", 4096, NULL, 1, &tcp_task_handle_, 1);
 
   // xSemaphoreTake(accept_mtx_, portMAX_DELAY);
+  return 0;
 }

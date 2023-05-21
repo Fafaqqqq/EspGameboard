@@ -13,12 +13,12 @@ int32_t wifi_recieve(socket_t sock, void* local, int32_t* size, uint32_t max_siz
 
 void wifi_init();
 
-void wifi_init_ap
+int wifi_init_ap
 (
   void *pvParams
 );
 
-void wifi_init_sta
+int wifi_init_sta
 (
   void *pvParams
 );

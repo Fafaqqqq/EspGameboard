@@ -4,7 +4,7 @@
 #include "menu.h"
 
 
-int PongGameLoop();
+int pong_game();
 
 // MenuRegisterItem("Pong", PongGameLoop);
 
