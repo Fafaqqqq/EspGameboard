@@ -28,6 +28,8 @@ typedef struct
   MenuItemFunc_t *func;
 } MenuItem_t;
 
+
+
 static MenuItem_t menu_items[] = {
   { "Pong", pong_game },
   { "Snake", NULL },
@@ -39,8 +41,40 @@ static MenuItem_t rooms_menu_items[] = {
   { "Create the room.", wifi_init_ap },
 };
 
+static void print_welcome()
+{
+  const char* welcome = "Welcome to the";
+  const char* esp_gameboard = "ESP Gameboard";
+  const char* gameboard = " gameboard";
+
+  DisplayFill(TFT9341_BLACK);
+  DisplaySetTextColor(TFT9341_MAGENTA);
+  DisplaySetFont(&Font20);
+  DisplaySetBackColor(TFT9341_BLACK);
+
+  DisplayDrawString(welcome, TFT9341_WIDTH / 2 - strlen(welcome) / 2 * Font20.Width, TFT9341_HEIGHT / 2  - 1 * Font20.Height);
+
+  DisplaySetFont(&Font24);
+  DisplaySetTextColor(TFT9341_MAGENTA);
+
+  // DisplaySetTextColor(TFT9341_BLUE);
+  DisplayDrawSymbol(TFT9341_WIDTH / 2 - strlen(esp_gameboard) / 2 * Font24.Width, TFT9341_HEIGHT / 2 + Font24.Height, esp_gameboard[0]);
+  
+  DisplayDrawSymbol(TFT9341_WIDTH / 2 - (strlen(esp_gameboard) - 2) / 2 * Font24.Width, TFT9341_HEIGHT / 2 + Font24.Height, esp_gameboard[1]);
+  
+  // DisplaySetTextColor(TFT9341_YELLOW);
+  DisplayDrawSymbol(TFT9341_WIDTH / 2 - (strlen(esp_gameboard) - 4) / 2 * Font24.Width, TFT9341_HEIGHT / 2 + Font24.Height, esp_gameboard[2]);
+
+  // DisplaySetTextColor(TFT9341_MAGENTA);
+  DisplayDrawString(esp_gameboard + 3, TFT9341_WIDTH / 2 - (strlen(welcome) - 8) / 2 * Font24.Width, TFT9341_HEIGHT / 2 + Font24.Height);
+
+
+  vTaskDelay(pdMS_TO_TICKS(10000));
+}
+
 static void StartRoomsMenu(MenuItemFunc_t exec_game)
 {
+
   DisplayFill(TFT9341_BLACK);
   DisplaySetTextColor(TFT9341_WHITE);
   DisplaySetBackColor(TFT9341_BLACK);
@@ -67,10 +101,10 @@ static void StartRoomsMenu(MenuItemFunc_t exec_game)
     if (joystick_data.is_pressed == 1)
     {
       // menu_items[current].func(NULL);
-      DisplayFill(TFT9341_BLACK);
-      DisplayDrawString("Wait for connect...", TFT9341_WIDTH / 2 - strlen("Wait connect...") / 2 * Font20.Width - 2 * Font20.Width, TFT9341_HEIGHT / 2);
+      // DisplayFill(TFT9341_BLACK);
+      // DisplayDrawString("Wait for connect...", TFT9341_WIDTH / 2 - strlen("Wait connect...") / 2 * Font20.Width - 2 * Font20.Width, TFT9341_HEIGHT / 2);
       
-      rooms_menu_items[current].func("espgameroom");
+      // rooms_menu_items[current].func("espgameroom");
       // wifi_init_ap("espgameroom", "espgameroom");
       exec_game((void*)current);
       break;
@@ -100,6 +134,9 @@ static void StartRoomsMenu(MenuItemFunc_t exec_game)
 
 void MenuInit()
 {
+  print_welcome();
+
+
   DisplayFill(TFT9341_BLACK);
   DisplaySetTextColor(TFT9341_WHITE);
   DisplaySetBackColor(TFT9341_BLACK);

@@ -30,8 +30,8 @@ extern uint16_t TFT9341_HEIGHT;
 
 //---------------------------------------------------------------------
 #define TFT9341_BLACK   0x0000
-#define TFT9341_BLUE    0x001F
-#define TFT9341_RED     0xF800
+#define TFT9341_RED     0x001F
+#define TFT9341_BLUE    0xF800
 #define TFT9341_GREEN   0x07E0
 #define TFT9341_CYAN    0x07FF
 #define TFT9341_MAGENTA 0xF81F
