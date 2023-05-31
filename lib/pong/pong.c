@@ -19,10 +19,10 @@
 //------------------------------------------------
 inline void DrawBall(uint32_t x, uint32_t y, uint16_t color)
 {
-  DisplayFillRect(x, y, x + BALL_SIZE_X, y + BALL_SIZE_Y, color);
+  display_fill_rect(x, y, x + BALL_SIZE_X, y + BALL_SIZE_Y, color);
 }
 
-static QueueHandle_t button_queue = NULL;
+static QueueHandle_t red_button_queue = NULL;
 static QueueHandle_t tcp_tx_queue = NULL;
 static QueueHandle_t tcp_rx_queue = NULL;
 
@@ -30,7 +30,7 @@ static void red_button_intr(void *pvParametrs)
 {
   uint32_t button_pressed = 1;
 
-  xQueueSend(button_queue, &button_pressed, pdMS_TO_TICKS(20));
+  xQueueSend(red_button_queue, &button_pressed, pdMS_TO_TICKS(20));
 }
 
 typedef struct 
@@ -131,13 +131,13 @@ static int owner_loop(socket_t sock)
   uint8_t  self_score = '0';
   uint8_t other_score = '0';
 
-  DisplaySetTextColor(TFT9341_WHITE);
-  DisplaySetBackColor(TFT9341_BLACK);
-  DisplaySetFont(&Font20);
+  display_set_text_color(TFT9341_WHITE);
+  display_set_back_color(TFT9341_BLACK);
+  display_set_font(&Font20);
 
-  DisplayDrawSymbol(TFT9341_WIDTH / 2 - 40, 5, other_score);
-  DisplayDrawSymbol(TFT9341_WIDTH / 2 + 40, 5, self_score);
-  DisplayDrawLine(TFT9341_WHITE, 0, 29, TFT9341_WIDTH, 29);
+  display_draw_symbol(TFT9341_WIDTH / 2 - 40, 5, other_score);
+  display_draw_symbol(TFT9341_WIDTH / 2 + 40, 5, self_score);
+  display_draw_line(TFT9341_WHITE, 0, 29, TFT9341_WIDTH, 29);
 
   owner_data_t owner_data;
   memset(&owner_data, 0, sizeof(owner_data));
@@ -179,9 +179,9 @@ static int owner_loop(socket_t sock)
 
   DrawBall(ball_position.x, ball_position.y, TFT9341_WHITE);
 
-  DisplayDrawLine(TFT9341_WHITE, TFT9341_WIDTH / 2, 0, TFT9341_WIDTH / 2, TFT9341_HEIGHT);
+  display_draw_line(TFT9341_WHITE, TFT9341_WIDTH / 2, 0, TFT9341_WIDTH / 2, TFT9341_HEIGHT);
 
-  DisplayFillRect
+  display_fill_rect
   (
     left_platform.x,
     left_platform.y,
@@ -194,7 +194,7 @@ static int owner_loop(socket_t sock)
 
   while (1)
   {
-    if (xQueueReceive(button_queue, &button_pressed, pdMS_TO_TICKS(1)) == pdTRUE)
+    if (xQueueReceive(red_button_queue, &button_pressed, pdMS_TO_TICKS(1)) == pdTRUE)
     {
       if (button_pressed == 1)
       {
@@ -272,7 +272,7 @@ static int owner_loop(socket_t sock)
         self_score = '0';
       }
 
-      DisplayDrawSymbol(TFT9341_WIDTH / 2 + 40, 5, self_score);
+      display_draw_symbol(TFT9341_WIDTH / 2 + 40, 5, self_score);
 
       ball_position.x = 0;
       ball_speed.x = -ball_speed.x;
@@ -285,7 +285,7 @@ static int owner_loop(socket_t sock)
         other_score = '0';
       }
 
-      DisplayDrawSymbol(TFT9341_WIDTH / 2 - 40, 5, other_score);
+      display_draw_symbol(TFT9341_WIDTH / 2 - 40, 5, other_score);
 
       ball_position.x = TFT9341_WIDTH - BALL_SIZE_X - 1;
       ball_speed.x = -ball_speed.x;
@@ -302,44 +302,22 @@ static int owner_loop(socket_t sock)
     }
     else
     {
-      // if (ball_position.x <= 3)
-      // {
-      //   self_score++;
-      //   if (self_score == '9' + 1)
-      //   {
-      //     self_score = '0';
-      //   }
-
-      //   DisplayDrawSymbol(TFT9341_WIDTH / 2 + 40, 5, self_score);
-      // }
-      // else if (ball_position.x >= TFT9341_WIDTH - 6)
-      // {
-      //   other_score++;
-      //   if (other_score == '9' + 1)
-      //   {
-      //     other_score = '0';
-      //   }
-
-      //   DisplayDrawSymbol(TFT9341_WIDTH / 2 - 40, 5, other_score);
-      // }
 
       ball_position.x += ball_speed.x;
       ball_position.y += ball_speed.y;
     }
 
-    
-
     DrawBall(ball_position.x, ball_position.y, TFT9341_WHITE);
 
     if (TFT9341_WIDTH / 2 - 5 <= ball_position.x  || ball_position.x  <= TFT9341_WIDTH / 2 + 5)
     {
-      DisplayDrawLine(TFT9341_WHITE, TFT9341_WIDTH / 2, 0, TFT9341_WIDTH / 2, TFT9341_HEIGHT);
+      display_draw_line(TFT9341_WHITE, TFT9341_WIDTH / 2, 0, TFT9341_WIDTH / 2, TFT9341_HEIGHT);
     }
     
     if (rigth_platform.y + joystick_direction.y * platform_speed >= 30 &&
         rigth_platform.y + joystick_direction.y * platform_speed <= TFT9341_HEIGHT - PLATFORM_SIZE_Y - 2)
     {
-      DisplayFillRect
+      display_fill_rect
       (
         rigth_platform.x, 
         rigth_platform.y,
@@ -350,7 +328,7 @@ static int owner_loop(socket_t sock)
 
       rigth_platform.y += joystick_direction.y * platform_speed;
 
-      DisplayFillRect
+      display_fill_rect
       (
         rigth_platform.x, 
         rigth_platform.y, 
@@ -362,7 +340,7 @@ static int owner_loop(socket_t sock)
 
     if (old_left_platform.y != left_platform.y)
     {
-      DisplayFillRect
+      display_fill_rect
       (
         old_left_platform.x,
         old_left_platform.y,
@@ -371,7 +349,7 @@ static int owner_loop(socket_t sock)
         TFT9341_BLACK
       );
 
-      DisplayFillRect
+      display_fill_rect
       (
         left_platform.x,
         left_platform.y,
@@ -390,13 +368,13 @@ static int owner_loop(socket_t sock)
 static int connected_loop(socket_t sock)
 {
   int button_pressed = 0;
-  DisplaySetTextColor(TFT9341_WHITE);
-  DisplaySetBackColor(TFT9341_BLACK);
-  DisplaySetFont(&Font20);
+  display_set_text_color(TFT9341_WHITE);
+  display_set_back_color(TFT9341_BLACK);
+  display_set_font(&Font20);
 
   // DisplayDrawSymbol(TFT9341_WIDTH / 2 - 40, 5, other_score);
   // DisplayDrawSymbol(TFT9341_WIDTH / 2 + 40, 5, self_score);
-  DisplayDrawLine(TFT9341_WHITE, 0, 29, TFT9341_WIDTH, 29);
+  display_draw_line(TFT9341_WHITE, 0, 29, TFT9341_WIDTH, 29);
 
   owner_data_t owner_data;
   memset(&owner_data, 0, sizeof(owner_data));
@@ -437,7 +415,7 @@ static int connected_loop(socket_t sock)
 
   // xTaskCreatePinnedToCore(connect_wifi_task, "connect_wifi_task", 4096, &sock, 4, NULL, 1);
 
-  DisplayFillRect
+  display_fill_rect
   (
     left_platform.x,
     left_platform.y,
@@ -446,14 +424,14 @@ static int connected_loop(socket_t sock)
     TFT9341_WHITE
   );
 
-  DisplayDrawLine(TFT9341_WHITE, TFT9341_WIDTH / 2, 0, TFT9341_WIDTH / 2, TFT9341_HEIGHT);
+  display_draw_line(TFT9341_WHITE, TFT9341_WIDTH / 2, 0, TFT9341_WIDTH / 2, TFT9341_HEIGHT);
 
 
   while (1)
   {
     joystick_data_get(&joystick_direction);
 
-    if (xQueueReceive(button_queue, &button_pressed, pdMS_TO_TICKS(1)) == pdTRUE)
+    if (xQueueReceive(red_button_queue, &button_pressed, pdMS_TO_TICKS(1)) == pdTRUE)
     {
       if (button_pressed == 1)
       {
@@ -473,12 +451,12 @@ static int connected_loop(socket_t sock)
     memcpy(&(left_platform.y), &(owner_data.platform_y), sizeof(owner_data.platform_y));
     memcpy(&ball_position, &(owner_data.ball), sizeof(owner_data.ball));
 
-    DisplayDrawSymbol(TFT9341_WIDTH / 2 + 40, 5, owner_data.owner_score);
-    DisplayDrawSymbol(TFT9341_WIDTH / 2 - 40, 5, owner_data.other_score);
+    display_draw_symbol(TFT9341_WIDTH / 2 + 40, 5, owner_data.owner_score);
+    display_draw_symbol(TFT9341_WIDTH / 2 - 40, 5, owner_data.other_score);
   
     if (TFT9341_WIDTH / 2 - 5 <= ball_position.x  || ball_position.x  <= TFT9341_WIDTH / 2 + 5)
     {
-      DisplayDrawLine(TFT9341_WHITE, TFT9341_WIDTH / 2, 0, TFT9341_WIDTH / 2, TFT9341_HEIGHT);
+      display_draw_line(TFT9341_WHITE, TFT9341_WIDTH / 2, 0, TFT9341_WIDTH / 2, TFT9341_HEIGHT);
     }
 
     if (old_ball_position.x != ball_position.x &&
@@ -494,7 +472,7 @@ static int connected_loop(socket_t sock)
     if (rigth_platform.y + joystick_direction.y * platform_speed >= 30 &&
         rigth_platform.y + joystick_direction.y * platform_speed <= TFT9341_HEIGHT - PLATFORM_SIZE_Y - 2)
     {
-      DisplayFillRect
+      display_fill_rect
       (
         rigth_platform.x, 
         rigth_platform.y,
@@ -505,7 +483,7 @@ static int connected_loop(socket_t sock)
 
       rigth_platform.y += joystick_direction.y * platform_speed;
 
-      DisplayFillRect
+      display_fill_rect
       (
         rigth_platform.x, 
         rigth_platform.y, 
@@ -518,7 +496,7 @@ static int connected_loop(socket_t sock)
 
     if (old_left_platform.y != left_platform.y)
     {
-      DisplayFillRect
+      display_fill_rect
       (
         old_left_platform.x,
         old_left_platform.y,
@@ -527,7 +505,7 @@ static int connected_loop(socket_t sock)
         TFT9341_BLACK
       );
 
-      DisplayFillRect
+      display_fill_rect
       (
         left_platform.x,
         left_platform.y,
@@ -543,7 +521,7 @@ static int connected_loop(socket_t sock)
 
 int pong_game(void* pvParams)
 {
-  button_queue = xQueueCreate(128, sizeof(uint32_t));
+  red_button_queue = xQueueCreate(128, sizeof(uint32_t));
 
   int      owner = (int)pvParams;
   socket_t sock = owner ? wifi_accept() : wifi_connect();
@@ -563,7 +541,7 @@ int pong_game(void* pvParams)
   //   tcp_rx_queue = xQueueCreate(128, sizeof(owner_data_t));
   // }
 
-  DisplayFill(TFT9341_BLACK);
+  display_fill(TFT9341_BLACK);
 
   return owner ? owner_loop(sock) : connected_loop(sock);
 }

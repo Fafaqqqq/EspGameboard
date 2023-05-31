@@ -10,8 +10,8 @@ void app_main(void)
   joystick_controller_init();
   wifi_init();
   button_pad_init();
-  DisplayInit(320, 240);
+  display_init(320, 240);
 
-  StartMenu();
+  start_menu();
 }
 //------------------------------------------------

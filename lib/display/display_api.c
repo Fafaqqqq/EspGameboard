@@ -205,7 +205,7 @@ static void spi_send_block_finish()
 }
 
 //-------------------------------------------------------------------
-void DisplayFill
+void display_fill
 (
   uint16_t color
 )
@@ -231,7 +231,7 @@ void DisplayFill
   heap_caps_free(buf);
 }
 //-------------------------------------------------------------------
-void DisplayFillRect
+void display_fill_rect
 (
   uint16_t x1, 
   uint16_t y1, 
@@ -367,7 +367,7 @@ static void spi_set_addr_wind
 }
 
 //-------------------------------------------------------------------
-void DisplayDrawPixel
+void display_draw_pixel
 (
   int x, 
   int y, 
@@ -389,7 +389,8 @@ void DisplayDrawPixel
 }
 
 //------------------------------------------------------------------
-void DisplayDrawLine
+
+void display_draw_line
 (
   uint16_t color,
   uint16_t x1,
@@ -398,49 +399,31 @@ void DisplayDrawLine
   uint16_t y2
 )
 {
-  int steep = abs(y2 - y1) > abs(x2 - x1);
-
-  if (steep)
+  const int deltaX = abs(x2 - x1);
+  const int deltaY = abs(y2 - y1);
+  const int signX = x1 < x2 ? 1 : -1;
+  const int signY = y1 < y2 ? 1 : -1;
+  int error = deltaX - deltaY;
+  display_draw_pixel(x2, y2, color);
+  while(x1 != x2 || y1 != y2) 
   {
-    swap(x1, y1);
-    swap(x2, y2);
-  }
-
-  if (x1 > x2)
-  {
-    swap(x1, x2);
-    swap(y1, y2);
-  }
-
-  int dx = x2 - x1;
-  int dy = abs(y2 - y1);
-  int err = dx / 2;
-  int ystep;
-
-  if (y1 < y2)
-    ystep = 1;
-  else
-    ystep = -1;
-
-  for (; x1 <= x2; x1++)
-  {
-    if (steep)
-      DisplayDrawPixel(y1, x1, color);
-    else
-      DisplayDrawPixel(x1, y1, color);
-
-    err -= dy;
-
-    if (err < 0)
+    display_draw_pixel(x1, y1, color);
+    int error2 = error * 2;
+    if(error2 > -deltaY) 
     {
-      y1 += ystep;
-      err = dx;
+      error -= deltaY;
+      x1 += signX;
+    }
+    if(error2 < deltaX) 
+    {
+      error += deltaX;
+      y1 += signY;
     }
   }
 }
 
 //------------------------------------------------------------------
-void DisplayDrawRect
+void display_draw_rect
 (
   uint16_t color, 
   uint16_t x1,
@@ -449,14 +432,51 @@ void DisplayDrawRect
   uint16_t y2
 )
 {
-  DisplayDrawLine(color, x1, y1, x2, y1);
-  DisplayDrawLine(color, x2, y1, x2, y2);
-  DisplayDrawLine(color, x1, y1, x1, y2);
-  DisplayDrawLine(color, x1, y2, x2, y2);
+  display_draw_line(color, x1, y1, x2, y1);
+  display_draw_line(color, x2, y1, x2, y2);
+  display_draw_line(color, x1, y1, x1, y2);
+  display_draw_line(color, x1, y2, x2, y2);
 }
 
 //-------------------------------------------------------------------
-void DisplayDrawCircle
+void display_draw_circle
+(
+  int      radius,
+  uint16_t x0,
+  uint16_t y0,
+  uint16_t color
+)
+{
+	int x = 0;
+	int y = radius;
+	int delta = 1 - 2 * radius;
+	int error = 0;
+	while(y >= 0) {
+		display_draw_pixel(x0 + x, y0 + y, color);
+		display_draw_pixel(x0 + x, y0 - y, color);
+		display_draw_pixel(x0 - x, y0 + y, color);
+		display_draw_pixel(x0 - x, y0 - y, color);
+
+		error = 2 * (delta + y) - 1;
+		if(delta < 0 && error <= 0) {
+			++x;
+			delta += 2 * x + 1;
+			continue;
+		}
+		error = 2 * (delta - x) - 1;
+		if(delta > 0 && error > 0) {
+			--y;
+			delta += 1 - 2 * y;
+			continue;
+		}
+		++x;
+		delta += 2 * (x - y);
+		--y;
+	}
+}
+
+//-------------------------------------------------------------------
+void display_fill_circle
 (
   int      radius,
   uint16_t x0,
@@ -465,44 +485,36 @@ void DisplayDrawCircle
 )
 {
   int x = 0;
-  int y = radius;
-  int f = 1 - radius;
-
-  int ddF_x = 1;
-  int ddF_y = -2 * radius;
-
-  DisplayDrawPixel(x0, y0 + radius, color);
-  DisplayDrawPixel(x0, y0 - radius, color);
-  DisplayDrawPixel(x0 + radius, y0, color);
-  DisplayDrawPixel(x0 - radius, y0, color);
-
-  while (x < y)
-  {
-    if (f >= 0)
+	int y = radius;
+	int delta = 1 - 2 * radius;
+	int error = 0;
+	while(y >= 0) {
+		for (uint32_t i = x0 - x; i <= x0 + x; i++)
     {
-      y--;
-      ddF_y += 2;
-      f += ddF_y;
+      display_draw_pixel(i, y0 + y, color);
+      display_draw_pixel(i, y0 - y, color);
     }
 
-    x++;
-
-    ddF_x += 2;
-    f     += ddF_x;
-
-    DisplayDrawPixel(x0 + x, y0 + y, color);
-    DisplayDrawPixel(x0 - x, y0 + y, color);
-    DisplayDrawPixel(x0 + x, y0 - y, color);
-    DisplayDrawPixel(x0 - x, y0 - y, color);
-    DisplayDrawPixel(x0 + y, y0 + x, color);
-    DisplayDrawPixel(x0 - y, y0 + x, color);
-    DisplayDrawPixel(x0 + y, y0 - x, color);
-    DisplayDrawPixel(x0 - y, y0 - x, color);
-  }
+		error = 2 * (delta + y) - 1;
+		if(delta < 0 && error <= 0) {
+			++x;
+			delta += 2 * x + 1;
+			continue;
+		}
+		error = 2 * (delta - x) - 1;
+		if(delta > 0 && error > 0) {
+			--y;
+			delta += 1 - 2 * y;
+			continue;
+		}
+		++x;
+		delta += 2 * (x - y);
+		--y;
+	}
 }
 
 //-------------------------------------------------------------------
-void DisplaySetTextColor
+void display_set_text_color
 (
   uint16_t color
 )
@@ -511,7 +523,7 @@ void DisplaySetTextColor
 }
 
 //-------------------------------------------------------------------
-void DisplaySetBackColor
+void display_set_back_color
 (
   uint16_t color
 )
@@ -520,7 +532,7 @@ void DisplaySetBackColor
 }
 
 //-------------------------------------------------------------------
-void DisplaySetFont
+void display_set_font
 (
   sFONT *pFonts
 )
@@ -529,7 +541,7 @@ void DisplaySetFont
 }
 
 //-------------------------------------------------------------------
-void DisplayDrawSymbol
+void display_draw_symbol
 (
   uint16_t x,
   uint16_t y,
@@ -570,11 +582,11 @@ void DisplayDrawSymbol
     {
       if (line & (1 << (width - j + offset - 1)))
       {
-        DisplayDrawPixel((x + j), y, spi_text.TextColor);
+        display_draw_pixel((x + j), y, spi_text.TextColor);
       }
       else
       {
-        DisplayDrawPixel((x + j), y, spi_text.BackColor);
+        display_draw_pixel((x + j), y, spi_text.BackColor);
       }
     }
     y++;
@@ -582,7 +594,7 @@ void DisplayDrawSymbol
 }
 
 //-------------------------------------------------------------------
-void DisplayDrawString
+void display_draw_string
 (
   const char* str,
   uint16_t    x,
@@ -591,14 +603,14 @@ void DisplayDrawString
 {
   while (*str)
   {
-    DisplayDrawSymbol(x, y, str[0]);
+    display_draw_symbol(x, y, str[0]);
     x += spi_text.pFont->Width;
     (void)*str++;
   }
 }
 
 //-------------------------------------------------------------------
-void DisplaySetRotation
+void display_set_rotation
 (
   uint8_t r
 )
@@ -635,7 +647,7 @@ void DisplaySetRotation
 }
 //-------------------------------------------------------------------
 
-void DisplayInit
+void display_init
 (
   uint16_t w_size,
   uint16_t h_size

@@ -43,14 +43,16 @@ joystick_status_t joystick_data_get(joystick_data_t* joystick_data) {
 
   // ESP_LOGI("joystick", "is pressed: %d", joystick_data->is_pressed);
   
-  joystick_data->x = roundf(((float)joystick_x_val / 2048.0f - (float)_joystick_center.x / 2048.0f) * 100.0f) / 100.0f;
+  joystick_data->x = -roundf(((float)joystick_x_val / 2048.0f - (float)_joystick_center.x / 2048.0f) * 100.0f) / 100.0f;
   joystick_data->y = roundf(((float)joystick_y_val / 2048.0f - (float)_joystick_center.y / 2048.0f) * 100.0f) / 100.0f;
   
-  if (fabs(joystick_data->x) < MIN_VALUE) joystick_data->x = 0;
-  if (fabs(joystick_data->x) > MAX_VALUE) joystick_data->x = SIGN(joystick_data->x);
+  if (fabs(joystick_data->x) <= MIN_VALUE) joystick_data->x = 0;
+  if (fabs(joystick_data->x) >= MAX_VALUE) joystick_data->x = SIGN(joystick_data->x);
 
-  if (fabs(joystick_data->y) < MIN_VALUE) joystick_data->y = 0;
-  if (fabs(joystick_data->y) > MAX_VALUE) joystick_data->y = SIGN(joystick_data->y);
+  if (fabs(joystick_data->y) <= MIN_VALUE) joystick_data->y = 0;
+  if (fabs(joystick_data->y) >= MAX_VALUE) joystick_data->y = SIGN(joystick_data->y);
+
+  // ESP_LOGI("joystick", "joystici direction x: %.2f, y: %.2f", joystick_data->x, joystick_data->y);
 
   return joystick_ok;
 }

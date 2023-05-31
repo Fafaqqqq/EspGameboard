@@ -39,12 +39,12 @@ extern uint16_t TFT9341_HEIGHT;
 #define TFT9341_WHITE   0xFFFF
 
 //---------------------------------------------------------------------
-void DisplayFill
+void display_fill
 (
   uint16_t color
 );
 
-void DisplayFillRect
+void display_fill_rect
 (
   uint16_t x1, 
   uint16_t y1, 
@@ -53,14 +53,22 @@ void DisplayFillRect
   uint16_t color
 );
 
-void DisplayDrawPixel
+void display_fill_circle
+(
+  int      radius,
+  uint16_t x0,
+  uint16_t y0,
+  uint16_t color
+);
+
+void display_draw_pixel
 (
   int x, 
   int y, 
   uint16_t color
 );
 
-void DisplayDrawLine
+void display_draw_line
 (
   uint16_t color,
   uint16_t x1,
@@ -69,7 +77,7 @@ void DisplayDrawLine
   uint16_t y2
 );
 
-void DisplayDrawRect
+void display_draw_rect
 (
   uint16_t color, 
   uint16_t x1,
@@ -78,7 +86,7 @@ void DisplayDrawRect
   uint16_t y2
 );
 
-void DisplayDrawCircle
+void display_draw_circle
 (
   int      radius,
   uint16_t x0,
@@ -86,41 +94,41 @@ void DisplayDrawCircle
   uint16_t color
 );
 
-void DisplaySetTextColor
+void display_set_text_color
 (
   uint16_t color
 );
 
-void DisplaySetBackColor
+void display_set_back_color
 (
   uint16_t color
 );
 
-void DisplaySetFont
+void display_set_font
 (
   sFONT *pFonts
 );
 
-void DisplayDrawSymbol
+void display_draw_symbol
 (
   uint16_t x,
   uint16_t y,
   uint8_t  symbol
 );
 
-void DisplayDrawString
+void display_draw_string
 (
   const char* str,
   uint16_t    x,
   uint16_t    y
 );
 
-void DisplaySetRotation
+void display_set_rotation
 (
   uint8_t r
 );
 
-void DisplayInit
+void display_init
 (
   uint16_t w_size,
   uint16_t h_size

@@ -24,4 +24,6 @@ int button_unregister_intr
   button_type_t btn_type
 );
 
+int button_pressed(button_type_t btn_type);
+
 #endif
