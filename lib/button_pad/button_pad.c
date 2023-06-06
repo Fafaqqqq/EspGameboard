@@ -177,3 +177,11 @@ int button_pressed(button_type_t btn_type)
 
   return 0;
 }
+
+void button_flush
+(
+  button_type_t btn_type
+)
+{
+  xQueueReset(btn_type ? blue_button_queue : red_button_queue);
+}

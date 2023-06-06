@@ -125,6 +125,9 @@ static void print_coming_soon()
 
 static void start_rooms_menu(MenuItemFunc_t exec_game)
 {
+  button_flush(BUTTON_RED);
+  button_flush(BUTTON_BLUE);
+
   int             current = 0;
   const char*     wait_connect = "Wait for connect...";
   joystick_data_t joystick_data = {0};
@@ -165,7 +168,8 @@ static void start_rooms_menu(MenuItemFunc_t exec_game)
                           TFT9341_WIDTH / 2 - strlen(wait_connect) / 2 * Font20.Width,
                           TFT9341_HEIGHT / 2);
     
-      rooms_menu_items[current].func("espgameroom");  
+      rooms_menu_items[current].func("espgameroom");
+      
       exec_game((void*)current);
       break;
     }
@@ -233,6 +237,9 @@ void print_menu()
 
 void start_menu()
 {
+  button_flush(BUTTON_RED);
+  button_flush(BUTTON_BLUE);
+  
   print_welcome();
   print_menu();
 
