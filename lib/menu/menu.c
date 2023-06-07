@@ -1,5 +1,4 @@
 #include "menu.h"
-#include "pong.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -17,6 +16,7 @@
 #include "joystick.h"
 #include "wifi.h"
 #include "button_pad.h"
+#include "games.h"
 
 #include <math.h>
 
@@ -29,13 +29,10 @@ typedef struct
   MenuItemFunc_t *func;
 } MenuItem_t;
 
-
-
-
 static MenuItem_t menu_items[] = {
   { "Pong", pong_game },
+  { "Tanks", tanks_game },
   { "Snake", NULL },
-  { "Tanks", NULL },
 };
 
 static MenuItem_t rooms_menu_items[] = {
@@ -253,7 +250,7 @@ void start_menu()
     if (button_pressed(BUTTON_BLUE))
     {
 
-      if (current != 0)
+      if (current == 2)
       {
         print_coming_soon();
       }

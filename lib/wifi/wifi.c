@@ -36,34 +36,23 @@
 #define ESP_WIFI_SAE_MODE WPA3_SAE_PWE_BOTH
 #define ESP_WIFI_SCAN_AUTH_MODE_THRESHOLD WIFI_AUTH_WPA2_PSK
 
-#define HOST_IP_ADDR "192.168.4.1"
-#define PORT 3333
+#define MAX_SSID_LENGTH    32
+#define MAX_AVAILEBLE_NETS 10
 
 static const char* WIFI_TAG = "wifi_init";
+static       char* availeble_nets_[MAX_AVAILEBLE_NETS];
 
-#define TRX_BUF_SIZE 128
-#define ADDR_BUF_SIZE 128
-#define MAX_AVAILEBLE_NETS 10
-#define MAX_SSID_LENGTH 33
-
-static char addr_str[ADDR_BUF_SIZE];
-static char tx_buffer[TRX_BUF_SIZE];
-static char rx_buffer[TRX_BUF_SIZE];
-
-static volatile int32_t tx_size = 0;
-static volatile int32_t rx_size = 0;
-
-static char* availeble_nets_[MAX_AVAILEBLE_NETS];
 static int s_retry_num = 0;
-
-static SemaphoreHandle_t access_mtx_ = NULL;
-static SemaphoreHandle_t accept_mtx_ = NULL;
-static TaskHandle_t tcp_task_handle_ = NULL;
 
 static EventGroupHandle_t s_wifi_event_group = NULL;
 
-static void wifi_event_handler(void* arg, esp_event_base_t event_base,
-                                    int32_t event_id, void* event_data)
+static void wifi_event_handler
+(
+  void* arg,
+  esp_event_base_t event_base,
+  int32_t          event_id, 
+  void*            event_data
+)
 {
   if (event_id == WIFI_EVENT_AP_STACONNECTED)
   {
@@ -145,232 +134,8 @@ const char** wifi_scan_esp_net(uint32_t* net_cnt)
   return esp_net_cnt ? availeble_nets_ : NULL;
 }
 
-static void tcp_server_task
-(
-  void *pvParameters
-)
-{
-  int err = 0;
-  int listen_sock = 0;
-  int accept_sock = 0;
-  int addr_family = AF_INET;
-  int ip_protocol = IPPROTO_IP;
-
-  struct sockaddr_in dest_addr;
-  struct sockaddr_in source_addr;
-
-  socklen_t addr_len = 0;
-
-  dest_addr.sin_family      = AF_INET;
-  dest_addr.sin_port        = htons(PORT);
-  dest_addr.sin_addr.s_addr = INADDR_ANY;
-  inet_aton(HOST_IP_ADDR, &(dest_addr.sin_addr.s_addr));
-
-  inet_ntoa_r(dest_addr.sin_addr.s_addr, addr_str, sizeof(addr_str) - 1);
-  ESP_LOGI(WIFI_TAG, "Pinned host addres: %s", addr_str);
-
-  listen_sock = socket(addr_family, SOCK_STREAM, ip_protocol);
-  if (listen_sock < 0) {
-      ESP_LOGE(WIFI_TAG, "Unable to create socket: errno %d", errno);
-      vTaskDelete(NULL);
-      return;
-  }
-  ESP_LOGI(WIFI_TAG, "Socket created");
-
-  err = bind(listen_sock, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
-  if (err != 0) {
-    ESP_LOGE(WIFI_TAG, "Socket unable to bind: errno %d", errno);
-    vTaskDelete(NULL);
-    return;
-  }
-  ESP_LOGI(WIFI_TAG, "Socket bound, port %d", PORT);
-
-  err = listen(listen_sock, 1);
-  if (err != 0) {
-    ESP_LOGE(WIFI_TAG, "Error occurred during listen: errno %d", errno);
-    vTaskDelete(NULL);
-    return;
-  }
-
-  ESP_LOGI(WIFI_TAG, "Socket listening");
-
-  addr_len    = sizeof(source_addr);
-  accept_sock = accept(listen_sock, (struct sockaddr *)&source_addr, &addr_len);
-  if (accept_sock < 0)
-  {
-    ESP_LOGE(WIFI_TAG, "Unable to accept connection: errno %d", errno);
-    vTaskDelete(NULL);
-    return;
-  }
-
-  xSemaphoreGive(accept_mtx_);
-
-  inet_ntoa_r(((struct sockaddr_in *)&source_addr)->sin_addr, addr_str, sizeof(addr_str) - 1);
-  ESP_LOGI(WIFI_TAG, "Socket accepted ip address: %s", addr_str);
-
-  while (1)
-  {
-    if (xSemaphoreTake(access_mtx_, pdMS_TO_TICKS(50)) != pdTRUE) continue;
-    rx_size = recv(accept_sock, rx_buffer, TRX_BUF_SIZE, 0);
-    xSemaphoreGive(access_mtx_);
-
-    if (0 > rx_size)
-    {
-      ESP_LOGE(WIFI_TAG, "Error occurred during receiving: errno %d", errno);
-      break;
-    } 
-    else if (0 == rx_size)
-    {
-      ESP_LOGW(WIFI_TAG, "Connection closed");
-      break;
-    } 
-    else
-    {
-      if (xSemaphoreTake(access_mtx_, pdMS_TO_TICKS(50)) != pdTRUE) continue;
-      int err = send(accept_sock, tx_buffer, tx_size, 0);
-      xSemaphoreGive(access_mtx_);
-
-      if (err < 0)
-      {
-          ESP_LOGE(WIFI_TAG, "Error occurred during sending: errno %d", errno);
-          break;
-      }
-    }
-
-    vTaskDelay(pdMS_TO_TICKS(50));
-  }
-
-  ESP_LOGI(WIFI_TAG, "Closed");
-
-  vTaskDelete(NULL);
-}
-
-static void tcp_client_task
-(
-  void *pvParameters
-)
-{
-  ESP_LOGI(WIFI_TAG, "tcp client start");
-  int err = 0;
-  struct sockaddr_in dest_addr = {0};
-
-  int addr_family = AF_INET;
-  int ip_protocol = IPPROTO_IP;
-
-  dest_addr.sin_addr.s_addr = inet_addr(HOST_IP_ADDR);
-  dest_addr.sin_family = AF_INET;
-  dest_addr.sin_port = htons(PORT);
-
-  inet_ntoa_r(dest_addr.sin_addr, addr_str, sizeof(addr_str) - 1);
-
-  int sock = socket(addr_family, SOCK_STREAM, ip_protocol);
-  if (sock < 0)
-  {
-    ESP_LOGE(WIFI_TAG, "Unable to create socket: errno %d", errno);
-    vTaskDelete(NULL);
-    return;
-  }
-  ESP_LOGI(WIFI_TAG, "Socket created");
-
-  err = connect(sock, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
-  if (err != 0)
-  {
-    ESP_LOGE(WIFI_TAG, "Socket unable to connect: errno %d", errno);
-    vTaskDelete(NULL);
-    return;
-  }
-  ESP_LOGI(WIFI_TAG, "Successfully connected to server");
-
-  xSemaphoreGive(accept_mtx_);
-
-  while (1)
-  {
-    if (xSemaphoreTake(access_mtx_, pdMS_TO_TICKS(20)) != pdTRUE) continue;
-    int len = send(sock, tx_buffer, tx_size, 0);
-    xSemaphoreGive(accept_mtx_);
-
-    if (len < 0)
-    {
-      ESP_LOGE(WIFI_TAG, "Error occurred during sending: errno %d", errno);
-      break;
-    }
-    else
-    {
-      // ESP_LOGI(WIFI_TAG, "Sent %d bytes: %s", len, tx_buffer);
-
-      // Принимаем ответ
-      if (xSemaphoreTake(access_mtx_, pdMS_TO_TICKS(20)) != pdTRUE) continue;
-      len = recv(sock, rx_buffer, TRX_BUF_SIZE, 0);
-      xSemaphoreGive(accept_mtx_);
-
-      if (len < 0)
-      {
-        ESP_LOGE(WIFI_TAG, "Error occurred during receiving: errno %d", errno);
-        break;
-      }
-      else
-      {
-        rx_buffer[len] = 0; // Null-terminate whatever we received and treat like a string
-        // ESP_LOGI(WIFI_TAG, "Received %d bytes: %s", len, rx_buffer);
-      }
-    }
-
-    vTaskDelay(pdMS_TO_TICKS(50));
-  }
-
-  ESP_LOGI(WIFI_TAG, "Closed");
-
-  vTaskDelete(NULL);
-}
-
-int32_t wifi_get_rx
-(
-  void* data,
-  uint32_t* size
-)
-{
-  if (xSemaphoreTake(access_mtx_, pdMS_TO_TICKS(50)) != pdTRUE)
-  {
-    return -__LINE__;
-  }
-
-  *size = rx_size;
-  memcpy(data, rx_buffer, rx_size);
-  
-  xSemaphoreGive(access_mtx_);
-  return 0;
-}
-
-int32_t wifi_set_tx
-(
-  const void* data,
-  uint32_t size
-)
-{
-  if (xSemaphoreTake(access_mtx_, pdMS_TO_TICKS(50)) != pdTRUE)
-  {
-    return -__LINE__;
-  }
-
-  tx_size = size;
-  memcpy(tx_buffer, data, size);
-  
-  xSemaphoreGive(access_mtx_);
-  return 0;
-}
-
 void wifi_init()
-{
-  accept_mtx_ = xSemaphoreCreateBinary();
-  access_mtx_ = xSemaphoreCreateMutex();
-
-
-  memset(tx_buffer, 0, TRX_BUF_SIZE);
-  memset(rx_buffer, 0, TRX_BUF_SIZE);
-  
-  // xSemaphoreTake(accept_mtx_, portMAX_DELAY);
-  // xSemaphoreTake(access_mtx_, portMAX_DELAY);
-  
+{  
   esp_err_t ret = nvs_flash_init();
 
   if (ret == ESP_ERR_NVS_NO_FREE_PAGES || 
@@ -392,9 +157,6 @@ int wifi_init_sta
 )
 {
   const char* net_ssid = (const char*)pvParams;
-
-  memset(tx_buffer, 0, TRX_BUF_SIZE);
-  memset(rx_buffer, 0, TRX_BUF_SIZE);
 
   s_wifi_event_group = xEventGroupCreate();
 
@@ -457,9 +219,6 @@ int wifi_init_sta
     ESP_LOGE(WIFI_TAG, "UNEXPECTED EVENT");
   }
 
-  // xTaskCreatePinnedToCore(tcp_client_task, "tcp client task", 4096, NULL, 1, &tcp_task_handle_, 1);
-
-  // xSemaphoreTake(accept_mtx_, portMAX_DELAY);
   return 0;
 }
 
@@ -471,9 +230,6 @@ int wifi_init_ap
   ESP_LOGI(WIFI_TAG, "wifi init ap");
 
   const char* net_ssid = (const char*)pvParams;
-
-  memset(tx_buffer, 0, TRX_BUF_SIZE);
-  memset(rx_buffer, 0, TRX_BUF_SIZE);
   
   wifi_init_config_t wifi_init_cfg = WIFI_INIT_CONFIG_DEFAULT();
 
@@ -512,8 +268,5 @@ int wifi_init_ap
   ESP_LOGI(WIFI_TAG, "wifi_init_softap finished. SSID:%s password:%s channel:%d",
             GAMEBOARD_ESP_WIFI_SSID, GAMEBOARD_ESP_WIFI_PASS, GAMEBOARD_ESP_WIFI_CHANNEL);
 
-  // xTaskCreatePinnedToCore(tcp_server_task, "tcp server task", 4096, NULL, 1, &tcp_task_handle_, 1);
-
-  // xSemaphoreTake(accept_mtx_, portMAX_DELAY);
   return 0;
 }

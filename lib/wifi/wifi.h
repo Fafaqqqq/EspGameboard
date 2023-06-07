@@ -28,16 +28,27 @@ const char** wifi_scan_esp_net
   uint32_t* net_cnt
 );
 
+int32_t wifi_start_tcp
+(
+  uint32_t tx_size,
+  uint32_t rx_size,
+  int      tcp_type
+);
+
+int32_t wifi_stop_tcp
+(
+  uint32_t tx_size,
+  uint32_t rx_size
+);
+
 int32_t wifi_set_tx
 (
-  const void* data,
-  uint32_t size
+  const void* data
 );
 
 int32_t wifi_get_rx
 (
-  void* data,
-  uint32_t* size
+  void* data
 );
 
 #endif // WIFI_INIT_H

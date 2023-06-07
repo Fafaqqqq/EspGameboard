@@ -1,4 +1,4 @@
-#include "pong.h"
+#include "games.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
@@ -17,20 +17,9 @@
 #define BALL_SIZE_Y 5
 
 //------------------------------------------------
-inline void DrawBall(uint32_t x, uint32_t y, uint16_t color)
+inline void draw_ball(uint32_t x, uint32_t y, uint16_t color)
 {
   display_fill_rect(x, y, x + BALL_SIZE_X, y + BALL_SIZE_Y, color);
-}
-
-static QueueHandle_t red_button_queue = NULL;
-static QueueHandle_t tcp_tx_queue = NULL;
-static QueueHandle_t tcp_rx_queue = NULL;
-
-static void red_button_intr(void *pvParametrs)
-{
-  uint32_t button_pressed = 1;
-
-  xQueueSend(red_button_queue, &button_pressed, pdMS_TO_TICKS(20));
 }
 
 typedef struct 
@@ -44,103 +33,25 @@ typedef struct
 {
   int32_t platform_y;
   point_t ball;
-  uint8_t owner_score;
-  uint8_t other_score;
-} owner_data_t;
+  uint8_t score;
+  uint8_t slave_score;
+} master_data_t;
 
-// void owner_wifi_task(void* pvParams)
-// {
-//   socket_t* sock = (socket_t*)pvParams;
-
-//   owner_data_t data;
-//   int32_t platform_y;
-//   int32_t recv_size;
-
-//   ESP_LOGI("owner_wifi_task", "sock %d", *sock);
-
-//   while (1)
-//   {
-//     // xQueueReceive(tcp_tx_queue, &data, pdMS_TO_TICKS(5));
-
-//     if (xQueueReceive(tcp_tx_queue, &data, pdMS_TO_TICKS(5)) == pdTRUE)
-//     {
-//       ESP_LOGI("owner_wifi_task", "recv queue data");
-//       wifi_transmit(*sock, &data, sizeof(data));
-//     }
-//     else
-//     {
-//       ESP_LOGI("owner_wifi_task", "recv queue err");
-//     }
-
-    
-//     // xQueueSend(tcp_rx_queue, &platform_y, pdMS_TO_TICKS(5));
-//     if (xQueueSend(tcp_rx_queue, &platform_y, pdMS_TO_TICKS(5)) == pdTRUE)
-//     {
-//       ESP_LOGI("owner_wifi_task", "send queue data");
-//       wifi_recieve(*sock, &(platform_y), &recv_size, sizeof(platform_y));
-//     }
-//     else
-//     {
-//       ESP_LOGI("owner_wifi_task", "send queue err");
-//     }
-
-
-//     vTaskDelay(pdMS_TO_TICKS(20));
-//   }
-// }
-
-// void connect_wifi_task(void* pvParams)
-// {
-//   socket_t* sock = (socket_t*)pvParams;
-
-//   owner_data_t data;
-//   int32_t platform_y;
-//   int32_t recv_size;
-
-//   while (1)
-//   {
-//     if (xQueueReceive(tcp_tx_queue, &platform_y, pdMS_TO_TICKS(5)) == pdTRUE)
-//     {
-//       ESP_LOGI("connect_wifi_task", "recv queue data");
-//     }
-//     else
-//     {
-//       ESP_LOGI("connect_wifi_task", "recv queue err");
-//     }
-
-//     wifi_transmit(*sock, platform_y, sizeof(platform_y));
-//     wifi_recieve(*sock, &(data), &recv_size, sizeof(data));
-//     if (xQueueSend(tcp_rx_queue, &data, pdMS_TO_TICKS(5)) == pdTRUE)
-//     {
-//       ESP_LOGI("connect_wifi_task", "send queue data");
-//     }
-//     else
-//     {
-//       ESP_LOGI("connect_wifi_task", "send queue err");
-//     }
-
-
-//     vTaskDelay(pdMS_TO_TICKS(20));
-//   }
-// }
-
-static int owner_loop(socket_t sock)
+static int master_loop(socket_t sock)
 {
-  int button_pressed = 0;
-
-  uint8_t  self_score = '0';
-  uint8_t other_score = '0';
+  uint8_t master_score = '0';
+  uint8_t  slave_score = '0';
 
   display_set_text_color(TFT9341_WHITE);
   display_set_back_color(TFT9341_BLACK);
   display_set_font(&Font20);
 
-  display_draw_symbol(TFT9341_WIDTH / 2 - 40, 5, other_score);
-  display_draw_symbol(TFT9341_WIDTH / 2 + 40, 5, self_score);
+  display_draw_symbol(TFT9341_WIDTH / 2 - 40, 5, slave_score);
+  display_draw_symbol(TFT9341_WIDTH / 2 + 40, 5, master_score);
   display_draw_line(TFT9341_WHITE, 0, 29, TFT9341_WIDTH, 29);
 
-  owner_data_t owner_data;
-  memset(&owner_data, 0, sizeof(owner_data));
+  master_data_t master_data;
+  memset(&master_data, 0, sizeof(master_data));
 
   joystick_data_t joystick_direction;
   memset(&joystick_direction, 0, sizeof(joystick_direction));
@@ -177,7 +88,7 @@ static int owner_loop(socket_t sock)
     .y = 0,
   };
 
-  DrawBall(ball_position.x, ball_position.y, TFT9341_WHITE);
+  draw_ball(ball_position.x, ball_position.y, TFT9341_WHITE);
 
   display_draw_line(TFT9341_WHITE, TFT9341_WIDTH / 2, 0, TFT9341_WIDTH / 2, TFT9341_HEIGHT);
 
@@ -189,35 +100,27 @@ static int owner_loop(socket_t sock)
     left_platform.y + PLATFORM_SIZE_Y, 
     TFT9341_WHITE
   );
-
-  // xTaskCreatePinnedToCore(owner_wifi_task, "owner_wifi_task", 4096, &sock, 4, NULL, 1);
-
   while (1)
   {
-    if (xQueueReceive(red_button_queue, &button_pressed, pdMS_TO_TICKS(1)) == pdTRUE)
-    {
-      if (button_pressed == 1)
-      {
-        return 0;
-      }
-    }
+    if (button_pressed(BUTTON_RED))
+      return 0;
 
-    memcpy(&(owner_data.other_score), &other_score,        sizeof(other_score));
-    memcpy(&(owner_data.owner_score), &self_score,         sizeof(self_score));
-    memcpy(&(owner_data.platform_y),  &(rigth_platform.y), sizeof(rigth_platform.y));
-    memcpy(&(owner_data.ball),        &ball_position,      sizeof(ball_position));
+    memcpy(&(master_data.slave_score), &slave_score,        sizeof(slave_score));
+    memcpy(&(master_data.score), &master_score,         sizeof(master_score));
+    memcpy(&(master_data.platform_y),  &(rigth_platform.y), sizeof(rigth_platform.y));
+    memcpy(&(master_data.ball),        &ball_position,      sizeof(ball_position));
     
     joystick_data_get(&joystick_direction);
 
     int32_t recv_size = 0;
-    if (wifi_transmit(sock, &owner_data, sizeof(owner_data)) != 0) return -__LINE__;
-    if (wifi_recieve(sock, &(left_platform.y), &recv_size, sizeof(left_platform.y)) != 0) return -__LINE__;
-    ESP_LOGI("PONG", "recieve %ld bytes from %d", recv_size, sizeof(owner_data));
-    if (recv_size != sizeof(left_platform.y)) return -__LINE__;
-    // xQueueSend(tcp_tx_queue, &(left_platform.y), pdMS_TO_TICKS(5));
-    // xQueueReceive(tcp_rx_queue, &(owner_data), pdMS_TO_TICKS(5));
+    if (wifi_transmit(sock, &master_data, sizeof(master_data)) != 0) 
+      return -__LINE__;
+    if (wifi_recieve(sock, &(left_platform.y), &recv_size, sizeof(left_platform.y)) != 0) 
+      return -__LINE__;
+    if (recv_size != sizeof(left_platform.y)) 
+      return -__LINE__;
 
-    DrawBall( ball_position.x, ball_position.y, TFT9341_BLACK);
+    draw_ball( ball_position.x, ball_position.y, TFT9341_BLACK);
 
     if (ball_position.x + ball_speed.x <= left_platform.x + PLATFORM_SIZE_X && 
         ball_position.y - BALL_SIZE_Y >= left_platform.y &&
@@ -266,26 +169,26 @@ static int owner_loop(socket_t sock)
     }
     else if (ball_position.x + ball_speed.x <= 0)
     {
-      self_score++;
-      if (self_score == '9' + 1)
+      master_score++;
+      if (master_score == '9' + 1)
       {
-        self_score = '0';
+        master_score = '0';
       }
 
-      display_draw_symbol(TFT9341_WIDTH / 2 + 40, 5, self_score);
+      display_draw_symbol(TFT9341_WIDTH / 2 + 40, 5, master_score);
 
       ball_position.x = 0;
       ball_speed.x = -ball_speed.x;
     }
     else if (ball_position.x + BALL_SIZE_X + ball_speed.x >= TFT9341_WIDTH - 1)
     {
-      other_score++;
-      if (other_score == '9' + 1)
+      slave_score++;
+      if (slave_score == '9' + 1)
       {
-        other_score = '0';
+        slave_score = '0';
       }
 
-      display_draw_symbol(TFT9341_WIDTH / 2 - 40, 5, other_score);
+      display_draw_symbol(TFT9341_WIDTH / 2 - 40, 5, slave_score);
 
       ball_position.x = TFT9341_WIDTH - BALL_SIZE_X - 1;
       ball_speed.x = -ball_speed.x;
@@ -307,7 +210,7 @@ static int owner_loop(socket_t sock)
       ball_position.y += ball_speed.y;
     }
 
-    DrawBall(ball_position.x, ball_position.y, TFT9341_WHITE);
+    draw_ball(ball_position.x, ball_position.y, TFT9341_WHITE);
 
     if (TFT9341_WIDTH / 2 - 5 <= ball_position.x  || ball_position.x  <= TFT9341_WIDTH / 2 + 5)
     {
@@ -365,19 +268,16 @@ static int owner_loop(socket_t sock)
   }
 }
 
-static int connected_loop(socket_t sock)
+static int slave_loop(socket_t sock)
 {
-  int button_pressed = 0;
   display_set_text_color(TFT9341_WHITE);
   display_set_back_color(TFT9341_BLACK);
   display_set_font(&Font20);
 
-  // DisplayDrawSymbol(TFT9341_WIDTH / 2 - 40, 5, other_score);
-  // DisplayDrawSymbol(TFT9341_WIDTH / 2 + 40, 5, self_score);
   display_draw_line(TFT9341_WHITE, 0, 29, TFT9341_WIDTH, 29);
 
-  owner_data_t owner_data;
-  memset(&owner_data, 0, sizeof(owner_data));
+  master_data_t master_data;
+  memset(&master_data, 0, sizeof(master_data));
 
   joystick_data_t joystick_direction;
   memset(&joystick_direction, 0, sizeof(joystick_direction));
@@ -413,7 +313,6 @@ static int connected_loop(socket_t sock)
 
   uint32_t  platform_speed = 6;
 
-  // xTaskCreatePinnedToCore(connect_wifi_task, "connect_wifi_task", 4096, &sock, 4, NULL, 1);
 
   display_fill_rect
   (
@@ -429,30 +328,24 @@ static int connected_loop(socket_t sock)
 
   while (1)
   {
+    if (button_pressed(BUTTON_RED))
+      return 0;
+
     joystick_data_get(&joystick_direction);
-
-    if (xQueueReceive(red_button_queue, &button_pressed, pdMS_TO_TICKS(1)) == pdTRUE)
-    {
-      if (button_pressed == 1)
-      {
-        return 0;
-      }
-    }
-    
+  
     int32_t recv_size = 0;
-    if (wifi_transmit(sock, &(rigth_platform.y), sizeof(rigth_platform.y)) != 0) return -__LINE__;
-    if (wifi_recieve(sock, &owner_data, &recv_size, sizeof(owner_data)) != 0) return -__LINE__;
-    ESP_LOGI("PONG", "recieve %ld bytes from %d", recv_size, sizeof(owner_data));
-    if (recv_size != sizeof(owner_data)) return -__LINE__;
+    if (wifi_transmit(sock, &(rigth_platform.y), sizeof(rigth_platform.y)) != 0) 
+      return -__LINE__;
+    if (wifi_recieve(sock, &master_data, &recv_size, sizeof(master_data)) != 0) 
+      return -__LINE__;
+    if (recv_size != sizeof(master_data))
+      return -__LINE__;
 
-    // xQueueSend(tcp_tx_queue, &owner_data, pdMS_TO_TICKS(5));
-    // xQueueReceive(tcp_rx_queue, &(left_platform.y), pdMS_TO_TICKS(5));
+    memcpy(&(left_platform.y), &(master_data.platform_y), sizeof(master_data.platform_y));
+    memcpy(&ball_position, &(master_data.ball), sizeof(master_data.ball));
 
-    memcpy(&(left_platform.y), &(owner_data.platform_y), sizeof(owner_data.platform_y));
-    memcpy(&ball_position, &(owner_data.ball), sizeof(owner_data.ball));
-
-    display_draw_symbol(TFT9341_WIDTH / 2 + 40, 5, owner_data.owner_score);
-    display_draw_symbol(TFT9341_WIDTH / 2 - 40, 5, owner_data.other_score);
+    display_draw_symbol(TFT9341_WIDTH / 2 + 40, 5, master_data.score);
+    display_draw_symbol(TFT9341_WIDTH / 2 - 40, 5, master_data.slave_score);
   
     if (TFT9341_WIDTH / 2 - 5 <= ball_position.x  || ball_position.x  <= TFT9341_WIDTH / 2 + 5)
     {
@@ -462,9 +355,9 @@ static int connected_loop(socket_t sock)
     if (old_ball_position.x != ball_position.x &&
         old_ball_position.y != ball_position.y)
     {
-      DrawBall(TFT9341_WIDTH - old_ball_position.x, old_ball_position.y, TFT9341_BLACK);
+      draw_ball(TFT9341_WIDTH - old_ball_position.x, old_ball_position.y, TFT9341_BLACK);
 
-      DrawBall(TFT9341_WIDTH - ball_position.x, ball_position.y, TFT9341_WHITE);
+      draw_ball(TFT9341_WIDTH - ball_position.x, ball_position.y, TFT9341_WHITE);
 
       memcpy(&old_ball_position, &ball_position, sizeof(ball_position));
     }
@@ -521,27 +414,17 @@ static int connected_loop(socket_t sock)
 
 int pong_game(void* pvParams)
 {
-  red_button_queue = xQueueCreate(128, sizeof(uint32_t));
+  button_flush(BUTTON_RED);
+  button_flush(BUTTON_BLUE);
 
-  int      owner = (int)pvParams;
-  socket_t sock = owner ? wifi_accept() : wifi_connect();
+  
+  int is_master = (int)pvParams;
 
-  ESP_LOGI("pong_game", "sock %d", sock);
-
-
-  button_register_intr(BUTTON_RED, red_button_intr, NULL);
-  // if (owner)
-  // {
-  //   tcp_tx_queue = xQueueCreate(128, sizeof(owner_data_t));
-  //   tcp_rx_queue = xQueueCreate(128, sizeof(int32_t));
-  // }
-  // else
-  // {
-  //   tcp_tx_queue = xQueueCreate(128, sizeof(int32_t));
-  //   tcp_rx_queue = xQueueCreate(128, sizeof(owner_data_t));
-  // }
+  socket_t sock = is_master 
+                ? wifi_accept()
+                : wifi_connect();
 
   display_fill(TFT9341_BLACK);
 
-  return owner ? owner_loop(sock) : connected_loop(sock);
+  return is_master ? master_loop(sock) : slave_loop(sock);
 }

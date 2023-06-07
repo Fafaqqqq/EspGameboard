@@ -28,7 +28,8 @@ static void button_task_intr
   void* arg
 )
 {
-  uint32_t      button_pin   = *(button_type_t*)arg ? BUTTON_PIN_RED : BUTTON_PIN_BLUE;
+  uint32_t      button_pin   = (button_type_t*)arg ? BUTTON_PIN_RED : BUTTON_PIN_BLUE;
+  ESP_LOGI(TAG, "button pin %lu, type %d", button_pin, (int)arg);
   button_type_t button_color = button_pin == 13 ? BUTTON_RED : BUTTON_BLUE;
 
   ESP_LOGI(TAG, "start button task: %lu", button_pin);
@@ -89,8 +90,8 @@ void button_pad_init()
   button_type_t button_type_red  = BUTTON_RED;
   button_type_t button_type_blue = BUTTON_BLUE;
 
-  xTaskCreatePinnedToCore(button_task_intr, "button_task_intr_red", 4096, &button_type_red, 9, NULL, 1);
-  xTaskCreatePinnedToCore(button_task_intr, "button_task_intr_blue", 4096, &button_type_blue, 10, NULL, 1);
+  xTaskCreatePinnedToCore(button_task_intr, "button_task_intr_red", 4096, (void*)BUTTON_RED, 9, NULL, 1);
+  xTaskCreatePinnedToCore(button_task_intr, "button_task_intr_blue", 4096, (void*)BUTTON_BLUE, 10, NULL, 1);
 }
 
 int button_register_intr

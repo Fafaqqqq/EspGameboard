@@ -21,7 +21,6 @@
 #include "wifi.h"
 
 #include "menu.h"
-#include "pong.h"
 #include "button_pad.h"
 
 //---------------------------------------------------------------------
