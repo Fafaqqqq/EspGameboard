@@ -39,20 +39,33 @@ static joystick_data_t _joystick_center;
 joystick_status_t joystick_data_get(joystick_data_t* joystick_data) {
   uint32_t joystick_x_val = adc1_get_raw(JOYSTICK_X_CHANNEL); // считываем значение оси X
   uint32_t joystick_y_val = adc1_get_raw(JOYSTICK_Y_CHANNEL); // считываем значение оси Y
+  joystick_data->is_pressed = !gpio_get_level(GPIO_NUM_15);
+
+  // ESP_LOGI("joystick", "is pressed: %d", joystick_data->is_pressed);
   
-  joystick_data->x = roundf(((float)joystick_x_val / 2048.0f - (float)_joystick_center.x / 2048.0f) * 100.0f) / 100.0f;
+  joystick_data->x = -roundf(((float)joystick_x_val / 2048.0f - (float)_joystick_center.x / 2048.0f) * 100.0f) / 100.0f;
   joystick_data->y = roundf(((float)joystick_y_val / 2048.0f - (float)_joystick_center.y / 2048.0f) * 100.0f) / 100.0f;
   
-  if (fabs(joystick_data->x) < MIN_VALUE) joystick_data->x = 0;
-  if (fabs(joystick_data->x) > MAX_VALUE) joystick_data->x = SIGN(joystick_data->x);
+  if (fabs(joystick_data->x) <= MIN_VALUE) joystick_data->x = 0;
+  if (fabs(joystick_data->x) >= MAX_VALUE) joystick_data->x = SIGN(joystick_data->x);
 
-  if (fabs(joystick_data->y) < MIN_VALUE) joystick_data->y = 0;
-  if (fabs(joystick_data->y) > MAX_VALUE) joystick_data->y = SIGN(joystick_data->y);
+  if (fabs(joystick_data->y) <= MIN_VALUE) joystick_data->y = 0;
+  if (fabs(joystick_data->y) >= MAX_VALUE) joystick_data->y = SIGN(joystick_data->y);
+
+  // ESP_LOGI("joystick", "joystici direction x: %.2f, y: %.2f", joystick_data->x, joystick_data->y);
 
   return joystick_ok;
 }
 
 joystick_status_t joystick_controller_init() {
+
+  gpio_reset_pin(GPIO_NUM_15);
+  // gpio_set_direction(GPIO_NUM_15, GPIO_MODE_INPUT);
+
+  esp_rom_gpio_pad_select_gpio(GPIO_NUM_15);
+  gpio_set_direction(GPIO_NUM_15, GPIO_MODE_INPUT);
+  gpio_set_pull_mode(GPIO_NUM_15, GPIO_PULLUP_ONLY);
+
   adc1_config_width(ADC_WIDTH_BIT_12); // задаем разрядность АЦП
   adc1_config_channel_atten(JOYSTICK_X_CHANNEL, ADC_ATTEN_DB_11); // задаем усиление для канала оси X
   adc1_config_channel_atten(JOYSTICK_Y_CHANNEL, ADC_ATTEN_DB_11); // задаем усиление для канала оси Y
